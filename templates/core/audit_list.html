@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Auditoría{% endblock %}
+{% block content %}
+<h1>Auditoría</h1>
+<form class="filters" method="get">
+  <input class="control" name="accion" value="{{ action }}" placeholder="Acción" aria-label="Acción">
+  <input class="control" name="usuario" value="{{ who }}" placeholder="Usuario" aria-label="Usuario">
+  <button class="secondary" type="submit">Filtrar</button>
+</form>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Cuándo</th><th>Quién</th><th>Acción</th><th>Detalle</th></tr></thead>
+    <tbody>
+      {% for row in page %}
+      <tr>
+        <td>{{ row.created_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ row.username_snapshot|default:"—" }}</td>
+        <td>{{ row.action }}</td>
+        <td>{{ row.detail }} {% if row.object_label %}({{ row.object_label }} {{ row.object_id }}){% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">Sin registros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

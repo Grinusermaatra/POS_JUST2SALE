@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Inventario{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Inventario</h1>
+    <p class="lede">Cada movimiento guarda cantidad, motivo, usuario y hora.</p>
+  </div>
+  {% if can_adjust %}<a class="btn" href="{% url 'movement_create' %}">Nuevo movimiento</a>{% endif %}
+</div>
+<form class="filters" method="get">
+  <select class="control" name="producto" aria-label="Producto">
+    <option value="">Todos los productos</option>
+    {% for product in products %}
+    <option value="{{ product.pk }}" {% if product_id == product.pk|stringformat:"s" %}selected{% endif %}>{{ product.name }}</option>
+    {% endfor %}
+  </select>
+  <select class="control" name="tipo" aria-label="Tipo">
+    <option value="">Todos los tipos</option>
+    {% for value, label in types %}
+    <option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="secondary" type="submit">Filtrar</button>
+</form>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Cuándo</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th><th>Usuario</th></tr></thead>
+    <tbody>
+      {% for row in page %}
+      <tr>
+        <td>{{ row.created_at|date:"d/m/Y H:i" }}</td>
+        <td><a href="{% url 'product_detail' row.product.pk %}">{{ row.product.name }}</a></td>
+        <td>{{ row.get_movement_type_display }}</td>
+        <td>{{ row.quantity }}</td>
+        <td>{{ row.reason }}</td>
+        <td>{{ row.user.get_username }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No hay movimientos.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

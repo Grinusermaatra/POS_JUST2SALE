@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Insumos{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Insumos</h1>
+    <p class="lede">Vender un producto no descuenta insumos. El consumo se registra aquí.</p>
+  </div>
+  {% if can_manage %}<a class="btn" href="{% url 'supply_create' %}">Nuevo insumo</a>{% endif %}
+</div>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Nombre</th><th>Unidad</th><th>Existencia</th>{% if show_cost %}<th>Costo</th>{% endif %}<th></th></tr></thead>
+    <tbody>
+      {% for supply in supplies %}
+      <tr>
+        <td><a href="{% url 'supply_detail' supply.pk %}">{{ supply.name }}</a> {% if not supply.is_active %}<span class="badge off">Inactivo</span>{% endif %}</td>
+        <td>{{ supply.get_unit_display }}</td>
+        <td>{{ supply.stock }}</td>
+        {% if show_cost %}<td>{{ supply.cost|default:"—" }}</td>{% endif %}
+        <td>{% if can_manage %}<a href="{% url 'supply_edit' supply.pk %}">Editar</a>{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No hay insumos.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

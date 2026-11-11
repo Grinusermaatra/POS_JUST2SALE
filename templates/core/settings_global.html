@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Configuración del negocio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Negocio</h1>
+  <div class="actions">
+    <a href="{% url 'settings_operational' %}">Parámetros operativos</a>
+    <a href="{% url 'integrations' %}">Integraciones</a>
+  </div>
+</div>
+<form class="panel" method="post">
+  {% csrf_token %}
+  {% include "partials/form_fields.html" %}
+  <button type="submit">Guardar</button>
+</form>
+{% endblock %}

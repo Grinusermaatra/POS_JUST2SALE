@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Receta de {{ product.name }}{% endblock %}
+{% block content %}
+<h1>Receta de {{ product.name }}</h1>
+<p class="help">Esta relación queda guardada. El punto de venta no descuenta insumos al cobrar.</p>
+<div class="panel">
+  {% for line in lines %}
+  <form method="post" class="actions" style="margin-bottom: 0.4rem;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="remove">
+    <input type="hidden" name="line_id" value="{{ line.pk }}">
+    <span>{{ line.quantity }} {{ line.supply.get_unit_display }} de {{ line.supply.name }}</span>
+    <button class="secondary small" type="submit">Quitar</button>
+  </form>
+  {% empty %}
+  <p>Sin insumos en la receta.</p>
+  {% endfor %}
+  <form method="post" class="filters">
+    {% csrf_token %}
+    <select class="control" name="supply" aria-label="Insumo">
+      {% for supply in supplies %}<option value="{{ supply.pk }}">{{ supply.name }}</option>{% endfor %}
+    </select>
+    <input class="control" name="quantity" inputmode="decimal" placeholder="Cantidad" aria-label="Cantidad">
+    <button type="submit">Agregar</button>
+  </form>
+</div>
+<p><a href="{% url 'product_detail' product.pk %}">Volver al producto</a></p>
+{% endblock %}

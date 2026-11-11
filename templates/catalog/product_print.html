@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Códigos {{ product.code }}{% endblock %}
+{% block content %}
+<p class="no-print actions"><button type="button" data-print>Imprimir</button>
+<a class="btn secondary" href="{% url 'product_detail' product.pk %}">Volver</a></p>
+<article class="print-sheet">
+  <h1>{{ product.name }}</h1>
+  <p>{{ product.code }} · {% moneyfmt product.price %}</p>
+  <img src="{% url 'product_qr' product.pk %}" alt="QR de {{ product.code }}">
+  <img src="{% url 'product_barcode' product.pk %}" alt="Código de barras de {{ product.code }}">
+</article>
+{% endblock %}
+{% block scripts %}<script src="/static/js/print.js"></script>{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Desactivar segundo factor{% endblock %}
+{% block content %}
+<form class="panel" method="post">
+  {% csrf_token %}
+  <h1>Desactivar segundo factor</h1>
+  {% include "partials/form_fields.html" %}
+  <button class="danger" type="submit">Desactivar</button>
+</form>
+{% endblock %}

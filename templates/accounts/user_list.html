@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Usuarios{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Usuarios</h1>
+    <p class="lede">Solo el Superadmin crea cuentas y asigna roles.</p>
+  </div>
+  <a class="btn" href="{% url 'user_create' %}">Nuevo usuario</a>
+</div>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><a href="{% url 'user_edit' row.user.pk %}">{{ row.user.get_username }}</a></td>
+        <td>{{ row.user.get_full_name|default:"—" }}</td>
+        <td>{{ row.role }}</td>
+        <td>{% if row.user.is_active %}<span class="badge ok">Activo</span>{% else %}<span class="badge off">Inactivo</span>{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">No hay usuarios.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

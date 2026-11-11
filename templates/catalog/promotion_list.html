@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Promociones{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Promociones</h1>
+    <p class="lede">Se definen antes de cobrar. En una venta aplica solo la que más descuenta.</p>
+  </div>
+  <a class="btn" href="{% url 'promotion_create' %}">Nueva promoción</a>
+</div>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Nombre</th><th>Descuento</th><th>Vigencia</th><th>Productos</th><th></th></tr></thead>
+    <tbody>
+      {% for promo in promotions %}
+      <tr>
+        <td>{{ promo.name }} {% if not promo.is_active %}<span class="badge off">Inactiva</span>{% elif promo.starts_at <= now and promo.ends_at >= now %}<span class="badge ok">Vigente</span>{% endif %}</td>
+        <td>{% if promo.discount_type == "percent" %}{{ promo.discount_value }}%{% else %}{% moneyfmt promo.discount_value %} por unidad{% endif %}</td>
+        <td>{{ promo.starts_at|date:"d/m/Y H:i" }} – {{ promo.ends_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ promo.products.count }}</td>
+        <td><a href="{% url 'promotion_edit' promo.pk %}">Editar</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No hay promociones.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

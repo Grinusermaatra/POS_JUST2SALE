@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ title }}</h1>
+  {% if editing %}
+  <a class="btn secondary" href="{% url 'user_delete' editing.pk %}">Eliminar</a>
+  {% endif %}
+</div>
+{% if locked_owner %}
+<p class="banner warn">Esta es la cuenta propietaria del servidor. Desde aquí puedes cambiar su nombre o contraseña, no su rol ni desactivarla. Si pierde el acceso, recupérala en el servidor con <span class="codes">changepassword</span> y <span class="codes">disable_otp</span>.</p>
+{% endif %}
+<form class="panel" method="post">
+  {% csrf_token %}
+  {% if editing %}<p class="help">Usuario: {{ editing.get_username }}</p>{% endif %}
+  {% include "partials/form_fields.html" %}
+  <button type="submit">Guardar</button>
+</form>
+{% endblock %}

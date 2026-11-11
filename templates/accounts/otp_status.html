@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Segundo factor{% endblock %}
+{% block content %}
+<section class="panel stack">
+  <h1>Segundo factor</h1>
+  {% if enabled %}
+  <p class="banner ok">Activo. Quedan {{ remaining }} código{{ remaining|pluralize:"s" }} de respaldo.</p>
+  <div class="actions">
+    <form method="post" action="{% url 'otp_start' %}">{% csrf_token %}<button class="secondary" type="submit">Configurar de nuevo</button></form>
+    <a class="btn danger" href="{% url 'otp_disable' %}">Desactivar</a>
+  </div>
+  {% else %}
+  <p>Opcional. Si lo activas, al entrar vas a necesitar un código de tu teléfono o uno de respaldo.</p>
+  <form method="post" action="{% url 'otp_start' %}">{% csrf_token %}<button type="submit">Activar</button></form>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Sin permiso{% endblock %}
+{% block content %}
+<h1>No tienes permiso</h1>
+<p class="lede">La acción se detuvo en el servidor. Ocultar el botón no basta, y aquí tampoco pasó.</p>
+<p><a href="{% url 'dashboard' %}">Volver al inicio</a></p>
+{% endblock %}
