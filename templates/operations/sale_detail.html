@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}{{ sale.folio }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ sale.folio }}</h1>
+    <p class="lede">
+      {{ sale.created_at|date:"d/m/Y H:i" }} · {{ sale.user.get_username }}
+      · {% if sale.status == "voided" %}Anulada{% else %}Confirmada{% endif %}
+      · {% if sale.origin == "offline" %}Registrada sin internet{% else %}En línea{% endif %}
+    </p>
+  </div>
+  <div>
+    <a class="btn secondary" href="{% url 'ticket' sale.folio %}">Ticket</a>
+    {% if can_void %}<a class="btn secondary" href="{% url 'sale_void' sale.folio %}">Anular</a>{% endif %}
+    {% if can_return %}<a class="btn secondary" href="{% url 'sale_return' sale.folio %}">Devolver</a>{% endif %}
+  </div>
+</div>
+{% if sale.sync_note %}<p class="banner warn">{{ sale.sync_note }}</p>{% endif %}
+{% if sale.customer_name or sale.customer_phone %}
+<p>Cliente: {{ sale.customer_name }} {{ sale.customer_phone }}</p>
+{% endif %}
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Descuento</th><th>Total</th><th>Devuelto</th></tr></thead>
+    <tbody>
+      {% for item in lines %}
+      <tr>
+        <td>{{ item.line.name_snapshot }}</td>
+        <td>{{ item.line.quantity }}</td>
+        <td>{% moneyfmt item.line.unit_price %}</td>
+        <td>{% moneyfmt item.line.discount %}</td>
+        <td>{% moneyfmt item.line.line_total %}</td>
+        <td>{{ item.returned }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p>Subtotal {% moneyfmt sale.subtotal %} · Impuesto {% moneyfmt sale.tax_total %} · Descuento {% moneyfmt sale.discount_total %}</p>
+<p class="totals">Total {% moneyfmt sale.total %} · Cambio {% moneyfmt sale.change_given %}</p>
+<ul>
+  {% for payment in payments %}
+  <li>{{ payment.get_method_display }}: {% moneyfmt payment.amount %}{% if payment.reference %} · ref. {{ payment.reference }}{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

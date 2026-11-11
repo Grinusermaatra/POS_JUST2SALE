@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Nuevo pedido{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Nuevo pedido</h1>
+  <form class="filters" method="post" action="{% url 'order_add' %}">
+    {% csrf_token %}
+    <input class="control" name="code" placeholder="Código" aria-label="Código del producto" required>
+    <input class="control qty" type="number" name="quantity" min="1" value="1" aria-label="Cantidad">
+    <button type="submit">Agregar</button>
+  </form>
+  {% if rows %}
+  <ul>
+    {% for row in rows %}
+    <li>{{ row.quantity }} × {{ row.product.name }} · {% moneyfmt row.product.price %} c/u</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="{% url 'order_save' %}">
+    {% csrf_token %}
+    <label>Nombre
+      <input class="control" name="customer_name" maxlength="120">
+    </label>
+    <label>Teléfono
+      <input class="control" name="customer_phone" maxlength="20">
+    </label>
+    <label>Notas
+      <textarea class="control" name="notes" rows="3"></textarea>
+    </label>
+    <button type="submit">Guardar pedido</button>
+  </form>
+  {% else %}
+  <p>Agrega al menos un producto. Guardar el pedido no mueve inventario.</p>
+  {% endif %}
+</section>
+{% endblock %}

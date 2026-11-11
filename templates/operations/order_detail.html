@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Pedido {{ order.folio }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Pedido {{ order.folio }}</h1>
+    <p class="lede">{{ order.get_status_display }} · {{ order.created_at|date:"d/m/Y H:i" }} · {{ order.user.get_username }}</p>
+  </div>
+  {% if can_charge %}<a class="btn" href="{% url 'order_charge' order.folio %}">Cobrar</a>{% endif %}
+</div>
+{% if order.customer_name or order.customer_phone %}<p>{{ order.customer_name }} {{ order.customer_phone }}</p>{% endif %}
+{% if order.notes %}<p>{{ order.notes }}</p>{% endif %}
+{% if order.cancel_reason %}<p>Motivo de cancelación: {{ order.cancel_reason }}</p>{% endif %}
+{% if order.sale %}<p>Venta: <a href="{% url 'sale_detail' order.sale.folio %}">{{ order.sale.folio }}</a></p>{% endif %}
+<ul>
+  {% for line in lines %}
+  <li>{{ line.quantity }} × {{ line.product.name }} · cotizado {% moneyfmt line.quoted_price %}</li>
+  {% endfor %}
+</ul>
+{% if can_ready %}
+<form method="post" action="{% url 'order_ready' order.folio %}">
+  {% csrf_token %}
+  <button type="submit">Marcar listo</button>
+</form>
+{% endif %}
+{% if can_cancel %}
+<form method="post" action="{% url 'order_cancel' order.folio %}">
+  {% csrf_token %}
+  <label>Motivo de cancelación
+    <input class="control" name="reason" required maxlength="200">
+  </label>
+  <button class="secondary" type="submit">Cancelar pedido</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -48,7 +48,7 @@ class BusinessMiddleware:
 
 
 class LoginRequiredMiddleware:
-    EXEMPT = ("/entrar/", "/static/", "/sw.js", "/api/offline/sincronizar/")
+    EXEMPT = ("/entrar/", "/static/", "/sw.js", "/offline/sincronizar/")
 
     def __init__(self, get_response):
         self.get_response = get_response

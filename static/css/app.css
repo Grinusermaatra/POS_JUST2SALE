@@ -141,4 +141,24 @@ th { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
   body { background: white; }
   .print-sheet { box-shadow: none; border: 0; }
 }
+label { display: grid; gap: 0.25rem; margin: 0.55rem 0; }
+.filters label { margin: 0; }
+.narrow { width: min(480px, 100%); }
+.ticket { width: min(420px, 100%); }
+code { word-break: break-all; }
+.page-head > div:last-child { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+form.inline { display: inline; }
+.pos { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 0.8rem; align-items: start; }
+.pos-side { position: sticky; top: 4.5rem; }
+.totals { font-size: 1.4rem; margin: 0 0 0.6rem; }
+.net { display: flex; align-items: center; gap: 0.4rem; font-size: 0.92rem; }
+.dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--muted); display: inline-block; }
+.dot.ok { background: var(--ok); }
+.dot.warn { background: var(--warn); }
+.dot.bad { background: var(--danger); }
+.qty { width: 4.5rem; }
+@media (max-width: 800px) {
+  .pos { grid-template-columns: 1fr; }
+  .pos-side { position: static; }
+}
 :focus-visible { outline: 3px solid #241c14; outline-offset: 2px; }

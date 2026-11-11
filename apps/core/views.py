@@ -62,6 +62,13 @@ def settings_global(request):
     )
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
+        from apps.operations.cashbox import current_shift
+
+        if current_shift() and (
+            data["currency_code"] != business.currency_code or data["decimal_places"] != business.decimal_places
+        ):
+            form.add_error(None, "Cierra la caja antes de cambiar la moneda o los decimales.")
+            return render(request, "core/settings_global.html", {"form": form})
         previous_currency = business.currency_code
         previous_supplies = business.supplies_enabled
         previous_cashiers = business.cashiers_may_open_register

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Cobrar {{ order.folio }}{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Cobrar pedido {{ order.folio }}</h1>
+  <p>Se cobra al precio vigente, no al cotizado, y entonces sí se descuenta el inventario.</p>
+  <ul>
+    {% for line in lines %}
+    <li>{{ line.quantity }} × {{ line.product.name }} · vigente {% moneyfmt line.product.price %}</li>
+    {% endfor %}
+  </ul>
+  <form method="post">
+    {% csrf_token %}
+    <label>Efectivo recibido
+      <input class="control" name="cash_tendered" inputmode="decimal">
+    </label>
+    <label>Tarjeta en terminal externa
+      <input class="control" name="card_amount" inputmode="decimal">
+    </label>
+    <label>Referencia
+      <input class="control" name="card_reference" maxlength="40">
+    </label>
+    <label><input type="checkbox" name="card_confirmed"> La terminal externa ya cobró</label>
+    <button type="submit">Confirmar cobro</button>
+  </form>
+</section>
+{% endblock %}

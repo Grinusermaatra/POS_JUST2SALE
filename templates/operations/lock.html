@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Caja bloqueada{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Caja bloqueada</h1>
+  <p>El PIN solo quita el bloqueo de esta pantalla. No inicia sesión.</p>
+  <form method="post" action="{% url 'register_unlock' %}">
+    {% csrf_token %}
+    <label>PIN
+      <input class="control" type="password" name="pin" inputmode="numeric" autocomplete="off" required>
+    </label>
+    <button type="submit">Desbloquear</button>
+  </form>
+</section>
+{% endblock %}

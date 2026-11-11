@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Anular {{ sale.folio }}{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Anular {{ sale.folio }}</h1>
+  <p>La venta queda en el historial. El inventario regresa y el efectivo se registra como movimiento, sin editar un cierre ya confirmado.</p>
+  <form method="post">
+    {% csrf_token %}
+    <label>Motivo
+      <input class="control" name="reason" required maxlength="200">
+    </label>
+    <button type="submit">Anular venta</button>
+    <a href="{% url 'sale_detail' sale.folio %}">Cancelar</a>
+  </form>
+</section>
+{% endblock %}

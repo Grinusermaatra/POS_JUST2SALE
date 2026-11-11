@@ -115,3 +115,57 @@ El bloqueo de la caja por inactividad y el PIN: el gancho está, la pantalla no.
 | Respaldo cifrado y restauración | pendiente |
 | Instalación y documentación de operación | en proceso |
 | Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
+
+## 2026-11-10 20:49 — Cierre de la etapa 2
+
+Venta, pago, inventario de la venta y caja operan en el servidor. No es el cierre del MVP: faltan reportes, respaldo y la guía completa.
+
+### Qué opera
+
+- Caja en `/caja/`. Buscar producto, armar el carrito y cobrar. El precio es el vigente y la promoción aplicada es una sola, la de mayor descuento por unidad.
+- Efectivo con cambio. Tarjeta solo si se confirma el cobro en la terminal externa. El pago mixto cubre el total; el cambio sale solo del efectivo. No se guarda un número de tarjeta.
+- Al confirmar, se descuenta la existencia una vez y queda el movimiento. No se vende por debajo de cero ni por debajo de lo apartado.
+- Ticket con folio. La venta confirmada no se edita ni se borra.
+- Abrir un turno, entradas y retiros con motivo, y cierre por denominaciones. El total lo calcula el servidor. Un segundo cierre no cambia el esperado, el contado ni la diferencia.
+- Anular exige motivo, regresa la existencia y registra el efectivo en la caja abierta. No reescribe un cierre ya confirmado. Si la caja de esa venta ya cerró, hace falta otra caja abierta para el reembolso.
+- Devolución parcial, con o sin reingreso. No se devuelve más de lo vendido. El reembolso puede ser efectivo, tarjeta externa o saldo a favor.
+- Pedido: no mueve inventario hasta que se cobra, y entonces usa el precio vigente.
+- Apartado: el anticipo es mayor que cero y menor que el total. Reserva existencia sin descontarla. Se descuenta al liquidar. La política del anticipo queda copiada en el apartado.
+- Offline: un superadmin autoriza un dispositivo y el token se muestra una vez. `POST /offline/sincronizar/` guarda la venta con el identificador local. Repetir el mismo identificador no vuelve a descontar. Si no hay caja abierta, la venta se conserva y queda un conflicto de efectivo, sin tocar un cierre. El navegador guarda el token, una copia del catálogo y las ventas locales en IndexedDB, y las envía al volver la conexión. Esa parte del navegador no se recorrió en un navegador.
+- Bloqueo de la pantalla de caja con PIN de 4 a 6 dígitos, definido en Mi cuenta. El PIN no inicia sesión. Sin PIN no hay bloqueo.
+
+### Verificación hecha
+
+Cliente HTTP de Django, el 2026-11-10 alrededor de las 20:49, contra PostgreSQL local. Cubrió: abrir caja, venta en efectivo con cambio y descuento de existencia, rechazo de tarjeta sin confirmar y de tarjeta mayor al total, pago mixto, rechazo por falta de existencia, cierre con denominaciones, segundo cierre sin cambiar el conteo, anulación que regresa existencia sin alterar el cierre, devolución que no se duplica, pedido que descuenta solo al cobrar, apartado que reserva sin descontar, sincronización offline idempotente, rechazo sin token, y bloqueo/desbloqueo con PIN. Los usuarios y productos de esa prueba se borraron. No es la batería formal. No se abrió el navegador.
+
+### Límites de esta etapa
+
+- La venta local dentro del navegador (service worker, IndexedDB y la suma en pantalla del cierre) está escrita y no se ejecutó en un navegador.
+- Una venta offline se carga a la caja que esté abierta al sincronizar. Si ya no hay caja abierta, no se mete el efectivo a un cierre anterior.
+- El descuento offline que supere la promoción vigente se conserva y queda para revisión. No se reescribe la venta.
+- Mercado Libre sigue sin implementar.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | implementada |
+| Roles y permisos validados en el servidor | implementada |
+| Usuarios y recuperación de la cuenta propietaria | implementada |
+| 2FA opcional para Superadmin y Supervisor | implementada |
+| Bloqueo de caja por inactividad y PIN | implementada |
+| Productos, paquetes, precios e historial | implementada |
+| Códigos QR y de barras | implementada |
+| Promociones | implementada |
+| Inventario, alertas e historial | implementada |
+| Insumos y recetas, con el módulo apagable | implementada |
+| Venta, pagos, ticket e inventario de la venta | implementada |
+| Caja, denominaciones, entradas y retiros | implementada |
+| Pedidos | implementada |
+| Apartados | implementada |
+| Devoluciones y anulaciones | implementada |
+| Offline y sincronización | implementada |
+| Reportes y exportación | pendiente |
+| Respaldo cifrado y restauración | pendiente |
+| Instalación y documentación de operación | en proceso |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
