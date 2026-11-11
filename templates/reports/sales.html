@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Ventas</h1>
+    <p class="lede">Solo ventas confirmadas. Una anulada no entra en el total. Las devoluciones se muestran aparte y no se restan solas.</p>
+  </div>
+</div>
+{% if error %}<p class="banner error">{{ error }}</p>{% endif %}
+<form class="filters" method="get">
+  <label>Periodo
+    <select class="control" name="periodo">
+      <option value="dia" {% if filters.periodo == "dia" %}selected{% endif %}>Día</option>
+      <option value="semana" {% if filters.periodo == "semana" %}selected{% endif %}>Semana</option>
+      <option value="mes" {% if filters.periodo == "mes" %}selected{% endif %}>Mes</option>
+    </select>
+  </label>
+  <label>Desde
+    <input class="control" type="date" name="desde" value="{{ filters.start_text }}">
+  </label>
+  <label>Hasta
+    <input class="control" type="date" name="hasta" value="{{ filters.end_text }}">
+  </label>
+  <label>Producto
+    <select class="control" name="producto">
+      <option value="">Todos</option>
+      {% for product in products %}
+      <option value="{{ product.pk }}" {% if filters.product_id == product.pk|stringformat:"s" %}selected{% endif %}>{{ product.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Usuario
+    <select class="control" name="usuario">
+      <option value="">Todos</option>
+      {% for person in users %}
+      <option value="{{ person.pk }}" {% if filters.user_id == person.pk|stringformat:"s" %}selected{% endif %}>{{ person.get_username }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Método
+    <select class="control" name="metodo">
+      <option value="">Todos</option>
+      <option value="cash" {% if filters.method == "cash" %}selected{% endif %}>Efectivo</option>
+      <option value="card" {% if filters.method == "card" %}selected{% endif %}>Tarjeta</option>
+    </select>
+  </label>
+  <button type="submit">Ver</button>
+</form>
+{% if data %}
+<p>{{ data.count }} registros · total {% moneyfmt data.total %} · devoluciones del periodo {% moneyfmt data.refunded %}</p>
+<p>Del {{ data.start|date:"d/m/Y" }} al {{ data.end|date:"d/m/Y" }}.</p>
+<p>
+  <a href="?{{ query }}&exportar=csv">CSV</a>
+  ·
+  <a href="?{{ query }}&exportar=xlsx">Excel</a>
+</p>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Folio</th><th>Fecha</th><th>Cajero</th><th>Producto</th><th>Cantidad</th><th>Total</th><th>Método</th></tr></thead>
+    <tbody>
+      {% for row in data.rows %}
+      <tr>
+        <td><a href="{% url 'sale_detail' row.folio %}">{{ row.folio }}</a></td>
+        <td>{{ row.fecha|date:"d/m/Y H:i" }}</td>
+        <td>{{ row.cajero }}</td>
+        <td>{{ row.producto }}</td>
+        <td>{{ row.cantidad }}</td>
+        <td>{% moneyfmt row.total %}</td>
+        <td>{{ row.metodo }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7">No hay ventas confirmadas en este filtro.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

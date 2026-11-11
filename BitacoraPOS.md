@@ -169,3 +169,63 @@ Cliente HTTP de Django, el 2026-11-10 alrededor de las 20:49, contra PostgreSQL 
 | Respaldo cifrado y restauración | pendiente |
 | Instalación y documentación de operación | en proceso |
 | Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
+
+## 2026-11-10 21:06 — Cierre de la etapa 3
+
+Reportes, instalación, respaldo y la guía de operación quedaron en el repositorio. No se corrió la batería formal ni un simulacro de restauración.
+
+### Qué opera
+
+- Reportes en `/reportes/` para quien tiene el permiso de reportes financieros. Día, semana, mes o un rango, y filtros por producto, usuario y método. El total es de ventas confirmadas. Las anuladas no entran. Las devoluciones del periodo se muestran aparte y no se restan solas. CSV y Excel exportan el filtro visible. Cada consulta y cada exportación queda en la auditoría. El empleado recibe 403.
+- `backup_db` hace `pg_dump` en formato custom, lo cifra con Fernet y borra los `just2sale-*.dump.enc` más viejos que `BACKUP_RETENTION_DAYS` (14 si no se dice otra cosa). `restore_db RUTA --confirmo` descifra y ejecuta `pg_restore --clean`. Hay que detener la aplicación y la base de destino ya tiene que existir.
+- El README describe instalación, caja, offline, reportes, respaldo y límites.
+
+### Verificación hecha
+
+- Cliente HTTP, alrededor de las 20:54: un superusuario vio la venta del día, descargó CSV y Excel, y un empleado recibió 403. Esas ventas de prueba se borraron.
+- `backup_db` escribió un archivo en un directorio temporal, se descifró y el contenido empezaba con el encabezado de `pg_dump`. El archivo se borró. No se restauró ninguna base.
+- Navegador, alrededor de las 20:59, con un usuario temporal ya borrado: abrir caja con 100, vender un café de 25 cobrando 50 en efectivo, ticket `V000008` con cambio de 25, cierre con la suma en pantalla, esperado 125, contado 100 y diferencia -25, y el folio en reportes. A 390 px de ancho la pantalla del cierre no se salía del marco. No se recorrió en el navegador la venta guardada en IndexedDB ni la sincronización desde esa pantalla.
+
+### Sigue pendiente
+
+- Mercado Libre, sin simulación.
+- Simulacro de restauración sobre una copia de la base.
+- La batería de pruebas de abajo. No está ejecutada.
+
+### Pruebas posteriores, en este orden
+
+1. Dos cobros a la vez del mismo producto cuando queda una pieza.
+2. Venta sin internet en el navegador: guardar, recargar, sincronizar, repetir el mismo identificador, catálogo viejo, token revocado y caja ya cerrada.
+3. Apartado hasta liquidar, vencer, cancelar con cada política de anticipo, y comprobar que la reserva no deja la existencia negativa.
+4. Devolución en efectivo con la caja cerrada, sin reingreso, y por encima de lo vendido.
+5. Cambio de moneda o decimales con la caja abierta.
+6. PIN por inactividad, sin usar el botón de bloquear.
+7. Paquete: venderlo no descuenta componentes. La receta no descuenta insumos.
+8. Promoción única, la de mayor descuento, sin acumular.
+9. Empleado sin costos, sin anular, sin reportes. Supervisor sin usuarios.
+10. Restaurar un respaldo en una base vacía de prueba y cobrar después.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | implementada |
+| Roles y permisos validados en el servidor | implementada |
+| Usuarios y recuperación de la cuenta propietaria | implementada |
+| 2FA opcional para Superadmin y Supervisor | implementada |
+| Bloqueo de caja por inactividad y PIN | implementada |
+| Productos, paquetes, precios e historial | implementada |
+| Códigos QR y de barras | implementada |
+| Promociones | implementada |
+| Inventario, alertas e historial | implementada |
+| Insumos y recetas, con el módulo apagable | implementada |
+| Venta, pagos, ticket e inventario de la venta | implementada |
+| Caja, denominaciones, entradas y retiros | implementada |
+| Pedidos | implementada |
+| Apartados | implementada |
+| Devoluciones y anulaciones | implementada |
+| Offline y sincronización | implementada |
+| Reportes y exportación | implementada |
+| Respaldo cifrado y restauración | implementada; el volcado cifrado se generó y se descifró. La restauración no se ejecutó |
+| Instalación y documentación de operación | implementada |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |

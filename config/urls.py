@@ -16,6 +16,7 @@ urlpatterns = [
     path("inventario/", include("apps.inventory.urls")),
     path("caja/", include("apps.operations.urls")),
     path("offline/", include("apps.offline.urls")),
+    path("reportes/", include("apps.reports.urls")),
 ]
 
 handler403 = "apps.core.errors.forbidden"
