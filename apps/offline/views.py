@@ -60,7 +60,7 @@ def device_revoke(request, pk):
     device = get_object_or_404(Device, pk=pk, revoked_at__isnull=True)
     device.revoked_at = timezone.now()
     device.save(update_fields=["revoked_at"])
-    messages.success(request, "Dispositivo revocado. No podrá sincronizar.")
+    messages.success(request, "Dispositivo revocado. No puede registrar ventas nuevas. Las ya guardadas en ese navegador se conservan y el mismo usuario las envía al volver a entrar.")
     return redirect("device_list")
 
 
@@ -68,9 +68,12 @@ def catalog_api(request):
     if not request.user.is_authenticated or not request.user.has_perm("operations.sell"):
         return JsonResponse({"error": "No autorizado."}, status=401)
     device = device_from_request(request)
-    if device is None or not device.is_active or device.user_id != request.user.id:
+    if device is None or device.user_id != request.user.id or not device_can_sync(device):
         return JsonResponse(
-            {"error": "Este navegador no está autorizado para operar sin internet.", "wipe": True},
+            {
+                "error": "Este navegador no está autorizado para registrar ventas nuevas. Las ventas ya guardadas se conservan.",
+                "block_new": True,
+            },
             status=403,
         )
     config = get_business()
@@ -116,27 +119,21 @@ def catalog_api(request):
     )
 
 
-@csrf_exempt
-def sync_api(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Usa POST."}, status=405)
-    device = device_from_request(request)
-    if not device_can_sync(device):
-        return JsonResponse({"error": "Dispositivo no autorizado o revocado.", "wipe": True}, status=401)
-    if not device.user.is_active or not (device.user.has_perm("operations.sell") or device.user.is_superuser):
-        return JsonResponse({"error": "El usuario del dispositivo no puede cobrar.", "wipe": True}, status=403)
-    try:
-        payload = json.loads(request.body.decode("utf-8") or "{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "El cuerpo no es JSON."}, status=400)
+def _sale_results(user, sales):
     config = get_business()
     shift = current_shift()
     results = []
-    for item in payload.get("sales", []):
+    for item in sales:
+        if not isinstance(item, dict):
+            results.append({"client_uuid": "", "status": "error", "message": "La venta no tiene el formato esperado."})
+            continue
         client_uuid = item.get("client_uuid")
+        if not client_uuid:
+            results.append({"client_uuid": "", "status": "error", "message": "Falta el identificador de la venta."})
+            continue
         try:
             sale = confirm_sale(
-                user=device.user,
+                user=user,
                 lines=item.get("lines") or [],
                 payments=item.get("payments") or [],
                 shift=shift,
@@ -162,8 +159,69 @@ def sync_api(request):
                 "message": sale.sync_note,
             }
         )
+    return results
+
+
+def _payload(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return None
+    sales = payload.get("sales", [])
+    if not isinstance(sales, list):
+        return None
+    return sales
+
+
+@csrf_exempt
+def sync_api(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Usa POST."}, status=405)
+    device = device_from_request(request)
+    if not device_can_sync(device):
+        return JsonResponse(
+            {
+                "error": "Dispositivo no autorizado o revocado. Las ventas ya guardadas siguen en este navegador.",
+                "block_new": True,
+            },
+            status=401,
+        )
+    if not device.user.is_active or not (device.user.has_perm("operations.sell") or device.user.is_superuser):
+        return JsonResponse(
+            {
+                "error": "El usuario del dispositivo no puede cobrar. Las ventas ya guardadas siguen en este navegador.",
+                "block_new": True,
+            },
+            status=403,
+        )
+    sales = _payload(request)
+    if sales is None:
+        return JsonResponse({"error": "El cuerpo no es JSON."}, status=400)
+    results = _sale_results(device.user, sales)
     device.last_sync_at = timezone.now()
     device.save(update_fields=["last_sync_at"])
+    return JsonResponse({"results": results})
+
+
+@require_POST
+def recover_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Entra con tu usuario para enviar las ventas pendientes."}, status=401)
+    if not request.user.is_active or not (request.user.has_perm("operations.sell") or request.user.is_superuser):
+        return JsonResponse(
+            {"error": "Este usuario no puede registrar ventas. Entra con la cuenta que las hizo."},
+            status=403,
+        )
+    sales = _payload(request)
+    if sales is None:
+        return JsonResponse({"error": "El cuerpo no es JSON."}, status=400)
+    results = _sale_results(request.user, sales)
+    folios = [row["folio"] for row in results if row.get("folio")]
+    audit(
+        request.user,
+        "offline.recover",
+        detail="Recuperación de ventas pendientes. Folios: " + (", ".join(folios) if folios else "ninguno confirmado") + ".",
+    )
     return JsonResponse({"results": results})
 
 

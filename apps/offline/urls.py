@@ -8,6 +8,7 @@ urlpatterns = [
     path("dispositivos/<int:pk>/revocar/", views.device_revoke, name="device_revoke"),
     path("catalogo/", views.catalog_api, name="offline_catalog"),
     path("sincronizar/", views.sync_api, name="offline_sync"),
+    path("recuperar/", views.recover_api, name="offline_recover"),
     path("conflictos/", views.conflict_list, name="conflict_list"),
     path("conflictos/<int:pk>/revisar/", views.conflict_resolve, name="conflict_resolve"),
 ]

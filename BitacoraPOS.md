@@ -297,3 +297,65 @@ Los datos llevaban el prefijo `smoke` o `SMOKE` y una contraseña de prueba. Se 
 | Respaldo cifrado y restauración | implementada; el simulacro sobre `just2sale_restore` quedó aprobado y esa base se borró |
 | Instalación y documentación de operación | implementada |
 | Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
+
+## 2026-11-13 18:44 — Ventas offline pendientes y pruebas en el navegador
+
+La corrección anterior borraba la venta pendiente al salir, al cambiar de usuario o al revocar el dispositivo. Eso evitaba que otra persona la viera, y también la perdía antes de que el servidor confirmara el folio. Quedó corregido y comprobado en Chrome, con datos SMOKE, en la base aislada `just2sale_smoke`. Esa base no es la de trabajo. Al terminar se elimina. No se conectó una terminal ni se registró un cobro real. Mercado Libre no se integró.
+
+### Corrección
+
+La venta pendiente se guarda en IndexedDB `just2sale-pending-` más el id del usuario. El catálogo y el carrito siguen en otra base, `just2sale`.
+
+- Al cerrar sesión o cambiar de usuario se borra el token, el catálogo visible y la caché del service worker. La base de pendientes de ese usuario no se toca. La siguiente cuenta abre la suya y no ve la lista ni el token.
+- Al revocar el dispositivo, el servidor responde `block_new`. El navegador quita el token y deja de aceptar ventas nuevas. La pendiente sigue. El mismo usuario, con internet, pulsa Enviar pendientes. Eso usa su sesión en `/offline/recuperar/`, no el token revocado.
+- El navegador solo quita la venta local cuando la respuesta trae folio. Si el servidor no confirma, si falta el folio o si no hay red, la venta sigue. Repetir el identificador devuelve la venta ya guardada y no crea otra ni otro pago ni otro movimiento.
+- La caja muestra cuántas hay, la referencia local y que no se borren los datos del sitio hasta ver el folio.
+
+Límites del navegador: la venta no está cifrada. Otra cuenta no la muestra, pero las herramientas del mismo navegador pueden abrir esa base. Borrar los datos del sitio, otro navegador u otra computadora no la recupera. Si la cuenta que la hizo no puede volver a entrar, desde aquí no hay otra forma de enviarla.
+
+Resultado: corregido. No se da por bueno solo por dejar los datos guardados: en la prueba 5 el mismo usuario las vio, las envió y el servidor confirmó el folio.
+
+### Pruebas en el navegador
+
+Ejecutadas el 2026-11-13 alrededor de las 18:44, hora America/Mexico_City, contra `http://127.0.0.1:8001` y la base `just2sale_smoke`. Usuarios `smoke-super`, `smoke-supervisor` y `smoke-empleado`. Productos `SMOKE-CAJA`, `SMOKE-OFF` y `SMOKE-CARD`.
+
+1. Roles. Aprobada. Superadmin y supervisor entraron a reportes (200). El empleado recibió 403 en reportes y 403 en `/caja/turno/1/`, el turno del supervisor.
+2. Venta en efectivo. Aprobada. Fondo inicial 100. `SMOKE-CAJA` a 25, efectivo 50. Ticket `V000001`, cambio $25.00. La pantalla de caja mostró existencia 9.
+3. Cierre. Aprobada. Esperado $125.00 antes de confirmar. Conteo de un billete de 100, uno de 20 y uno de 5. Después del cierre: esperado $125.00, contado $125.00, diferencia $0.00.
+4. Offline. Aprobada. Se guardó una venta, se recargó sin internet y siguió la referencia `4a2ea1ff-fa28-49fd-95f4-5d97f6241ce0`. Al enviar, el servidor confirmó `V000002`: 1 venta, 1 pago y 1 movimiento de inventario, cantidad 1. Reenviar ese identificador devolvió el mismo folio y dejó esos tres conteos en 1. La existencia de `SMOKE-OFF` quedó en 7.
+5. Sesión, otro usuario y revocación. Aprobada. Al reconectar, la nueva venta seguía pendiente. Salir dejó esa venta, borró el token y las cachés `just2sale`. El empleado vio «No hay ventas pendientes» y no tenía token; la venta del supervisor seguía en su base. Al volver el supervisor, la pantalla indicó pulsar Enviar pendientes. Con el token otra vez guardado, revocar el dispositivo dejó la pendiente, mostró que no se pueden registrar ventas nuevas y no la borró. Enviar pendientes confirmó `V000003` una sola vez: 1 venta, 1 pago, 1 movimiento. Un intento de guardar otra venta local no creó pendientes.
+6. Devolución de tarjeta. Aprobada. La venta `V000004` se registró con la confirmación del cajero y la referencia `SMOKE-TERM`, sin terminal conectada. La devolución en tarjeta, sin marcar la confirmación ni anotar referencia, quedó en pantalla como «Pendiente de la terminal externa» y en la base como `pending`, referencia vacía, tipo `return`. No se simuló el reembolso ni se confirmó después.
+
+No hubo pruebas fallidas ni omitidas en esta lista.
+
+### Sigue pendiente
+
+- Mercado Libre, sin simulación.
+- Borrar los datos del navegador, o usar otro navegador, pierde la venta que el servidor todavía no confirmó.
+- No se restauró un respaldo encima de la base en uso. El simulacro anterior fue la base `just2sale_restore`, ya borrada.
+- No se declara el punto de venta listo para operar con datos o dinero reales.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | implementada |
+| Roles y permisos validados en el servidor | implementada |
+| Usuarios y recuperación de la cuenta propietaria | implementada |
+| 2FA opcional para Superadmin y Supervisor | implementada |
+| Bloqueo de caja por inactividad y PIN | implementada; la prueba anterior atrasó la sesión, no esperó el minuto en pantalla |
+| Productos, paquetes, precios e historial | implementada |
+| Códigos QR y de barras | implementada |
+| Promociones | implementada |
+| Inventario, alertas e historial | implementada |
+| Insumos y recetas, con el módulo apagable | implementada |
+| Venta, pagos, ticket e inventario de la venta | implementada; venta, ticket, cambio y existencia comprobados en el navegador |
+| Caja, denominaciones, entradas y retiros | implementada; apertura y cierre comprobados en el navegador |
+| Pedidos | implementada |
+| Apartados | implementada |
+| Devoluciones y anulaciones | implementada; la devolución de tarjeta queda pendiente hasta la terminal |
+| Offline y sincronización | implementada; la pendiente se conserva al salir, cambiar de usuario o revocar, y se recupera con la sesión |
+| Reportes y exportación | implementada; el empleado recibe 403 |
+| Respaldo cifrado y restauración | implementada; el simulacro del 13 de noviembre sobre `just2sale_restore` quedó aprobado y esa base se borró |
+| Instalación y documentación de operación | implementada |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |

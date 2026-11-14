@@ -11,6 +11,9 @@
   function tokenKey() {
     return "just2sale.deviceToken." + userId;
   }
+  function blockKey() {
+    return "just2sale.offlineBlocked." + userId;
+  }
   const CART_KEY = "cart";
 
   const dot = document.getElementById("net-dot");
@@ -21,23 +24,59 @@
   const cartBox = document.getElementById("offline-cart");
   const ticket = document.getElementById("offline-ticket");
   const pending = document.getElementById("pending-count");
+  const help = document.getElementById("pending-help");
+  const pendingList = document.getElementById("pending-list");
 
   let openDb = null;
+  let openSales = null;
   window.J2SOfflineClose = () => {
     if (openDb) openDb.close();
+    if (openSales) openSales.close();
     openDb = null;
+    openSales = null;
   };
 
   function db() {
+    function upgrade(database) {
+      if (!database.objectStoreNames.contains("kv")) database.createObjectStore("kv");
+      if (!database.objectStoreNames.contains("sales")) database.createObjectStore("sales", { keyPath: "client_uuid" });
+    }
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open("just2sale", 1);
+      const request = indexedDB.open("just2sale");
+      request.onsuccess = () => {
+        const database = request.result;
+        if (database.objectStoreNames.contains("kv")) {
+          openDb = database;
+          resolve(database);
+          return;
+        }
+        const next = database.version + 1;
+        database.close();
+        const again = indexedDB.open("just2sale", next);
+        again.onupgradeneeded = () => upgrade(again.result);
+        again.onsuccess = () => {
+          openDb = again.result;
+          resolve(again.result);
+        };
+        again.onerror = () => reject(again.error);
+      };
+      request.onupgradeneeded = () => upgrade(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  function salesDb() {
+    if (!userId) return Promise.reject(new Error("sin usuario"));
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open("just2sale-pending-" + userId, 1);
       request.onupgradeneeded = () => {
         const database = request.result;
-        if (!database.objectStoreNames.contains("kv")) database.createObjectStore("kv");
-        if (!database.objectStoreNames.contains("sales")) database.createObjectStore("sales", { keyPath: "client_uuid" });
+        if (!database.objectStoreNames.contains("sales")) {
+          database.createObjectStore("sales", { keyPath: "client_uuid" });
+        }
       };
       request.onsuccess = () => {
-        openDb = request.result;
+        openSales = request.result;
         resolve(request.result);
       };
       request.onerror = () => reject(request.error);
@@ -48,6 +87,13 @@
     return db().then((database) => {
       const tx = database.transaction(name, mode);
       return { tx, store: tx.objectStore(name) };
+    });
+  }
+
+  function salesStore(mode) {
+    return salesDb().then((database) => {
+      const tx = database.transaction("sales", mode);
+      return { tx, store: tx.objectStore("sales") };
     });
   }
 
@@ -67,16 +113,33 @@
     }));
   }
 
+  function kvDelete(key) {
+    return store("kv", "readwrite").then(({ tx, store: box }) => new Promise((resolve, reject) => {
+      box.delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    }));
+  }
+
   function putSale(sale) {
-    return store("sales", "readwrite").then(({ tx, store: box }) => new Promise((resolve, reject) => {
+    return salesStore("readwrite").then(({ tx, store: box }) => new Promise((resolve, reject) => {
       box.put(sale);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     }));
   }
 
+  function deleteSale(uuid) {
+    return salesStore("readwrite").then(({ tx, store: box }) => new Promise((resolve, reject) => {
+      box.delete(uuid);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    }));
+  }
+
   function allSales() {
-    return store("sales", "readonly").then(({ store: box }) => new Promise((resolve, reject) => {
+    if (!userId) return Promise.resolve([]);
+    return salesStore("readonly").then(({ store: box }) => new Promise((resolve, reject) => {
       const request = box.getAll();
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
@@ -88,25 +151,32 @@
     return localStorage.getItem(tokenKey()) || "";
   }
 
-  function forgetDevice(message) {
+  function isBlocked() {
+    return localStorage.getItem(blockKey()) === "1";
+  }
+
+  function csrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute("content") : "";
+  }
+
+  function lockDevice(message) {
     localStorage.removeItem(tokenKey());
+    localStorage.setItem(blockKey(), "1");
     const input = document.getElementById("device-token");
     if (input) input.value = "";
-    return (window.J2SSession ? window.J2SSession.wipe() : Promise.resolve()).then(() => {
-      if (userId) localStorage.setItem("just2sale.userId", userId);
-      note.textContent = message || "Se borraron el token y los datos locales de este navegador.";
-      if (pending) pending.textContent = "Nada pendiente";
+    return kvDelete("catalog").catch(() => undefined).then(() => {
       if (cartBox) cartBox.innerHTML = "";
       if (matches) matches.innerHTML = "";
+      note.textContent = message || "Este dispositivo no puede registrar ventas nuevas. Las pendientes siguen en este navegador.";
+      return refreshPending();
     });
   }
 
   function authFailed(result) {
-    if (result.body && result.body.wipe) {
-      return forgetDevice(result.body.error);
-    }
-    note.textContent = (result.body && result.body.error) || "No se pudo usar el dispositivo.";
-    return Promise.resolve();
+    if (result.body && result.body.block_new) return lockDevice(result.body.error);
+    note.textContent = (result.body && result.body.error) || "No se pudo usar el dispositivo. Las ventas pendientes siguen en este navegador.";
+    return refreshPending();
   }
 
   function bestUnitDiscount(product, promotions) {
@@ -209,54 +279,109 @@
   function setOnline(online) {
     dot.className = "dot " + (online ? "ok" : "bad");
     label.textContent = online ? "Con internet" : "Sin internet";
-    saleBox.hidden = online;
+    saleBox.hidden = online || isBlocked() || !token();
   }
 
   function refreshPending() {
     return allSales().then((sales) => {
-      const waiting = sales.filter((sale) => sale.pending).length;
-      pending.textContent = waiting ? waiting + " pendiente(s)" : "Nada pendiente";
+      const waiting = sales.filter((sale) => sale.pending);
+      const count = waiting.length;
+      if (pending) {
+        pending.textContent = count
+          ? (count === 1
+            ? "Hay 1 venta pendiente. El servidor todavía no confirmó que quedó guardada."
+            : "Hay " + count + " ventas pendientes. El servidor todavía no confirmó que quedaron guardadas.")
+          : "No hay ventas pendientes.";
+      }
+      if (help) {
+        help.textContent = count
+          ? (isBlocked() ? "Este dispositivo no puede registrar ventas nuevas. " : "")
+            + "Entra con este mismo usuario, con internet, y pulsa Enviar pendientes. No borres los datos del sitio hasta que aparezca el folio. Otra cuenta en este navegador no las ve."
+          : (isBlocked() ? "Este dispositivo no puede registrar ventas nuevas." : "");
+      }
+      if (pendingList) {
+        pendingList.replaceChildren();
+        waiting.forEach((sale) => {
+          const item = document.createElement("li");
+          item.textContent = "Referencia " + sale.client_uuid
+            + (sale.total_cents != null ? " · " + symbol + money.formatCents(sale.total_cents, places) : "");
+          pendingList.appendChild(item);
+        });
+      }
       return sales;
+    }).catch(() => []);
+  }
+
+  function postSales(url, headers, waiting) {
+    return fetch(url, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({ sales: waiting }),
+    }).then((response) => response.json().then((body) => ({ ok: response.ok, body })).catch(() => ({ ok: false, body: {} })));
+  }
+
+  function applyServerResults(result) {
+    if (!result || !result.ok || !result.body || !Array.isArray(result.body.results)) {
+      note.textContent = (result && result.body && result.body.error)
+        || "El servidor no confirmó las ventas. Siguen en este navegador.";
+      return refreshPending();
+    }
+    const byId = {};
+    result.body.results.forEach((item) => {
+      if (item && item.client_uuid) byId[item.client_uuid] = item;
+    });
+    return allSales().then((sales) => Promise.all(sales.filter((sale) => sale.pending).map((sale) => {
+      const saved = byId[sale.client_uuid];
+      if (!saved || !saved.folio) return Promise.resolve();
+      return deleteSale(sale.client_uuid);
+    }))).then(() => refreshPending()).then((sales) => {
+      const waiting = sales.filter((sale) => sale.pending).length;
+      const folios = result.body.results.filter((item) => item.folio).map((item) => item.folio);
+      if (!folios.length) {
+        note.textContent = "El servidor no confirmó ninguna venta. Siguen en este navegador.";
+      } else if (waiting) {
+        note.textContent = "El servidor confirmó " + folios.join(", ") + ". Quedan " + waiting + " sin confirmar en este navegador.";
+      } else {
+        note.textContent = "El servidor confirmó " + folios.join(", ") + ". Ya no están pendientes.";
+      }
     });
   }
 
+  function recover(waiting) {
+    return postSales("/offline/recuperar/", {
+      "Content-Type": "application/json",
+      "X-CSRFToken": csrfToken(),
+    }, waiting).then(applyServerResults);
+  }
+
   function syncNow() {
-    const deviceToken = token();
-    if (!deviceToken || !navigator.onLine) {
-      note.textContent = navigator.onLine ? "Falta el token de este dispositivo." : "Sigue sin internet.";
-      return Promise.resolve();
+    if (!navigator.onLine) {
+      note.textContent = "Sigue sin internet. Las ventas pendientes siguen en este navegador.";
+      return refreshPending();
     }
     return allSales().then((sales) => {
       const waiting = sales.filter((sale) => sale.pending);
-      if (!waiting.length) return null;
-      return fetch("/offline/sincronizar/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + deviceToken },
-        body: JSON.stringify({ sales: waiting }),
-      }).then((response) => response.json().then((body) => ({ ok: response.ok, body })));
-    }).then((result) => {
-      if (!result) return;
-      if (!result.ok) return authFailed(result);
-      const byId = {};
-      (result.body.results || []).forEach((item) => { byId[item.client_uuid] = item; });
-      return waitingFrom(byId).then((jobs) => Promise.all(jobs)).then(() => refreshPending()).then(() => {
-        note.textContent = "Sincronización terminada.";
-      });
+      if (!waiting.length) {
+        note.textContent = "No hay ventas pendientes.";
+        return refreshPending();
+      }
+      const deviceToken = token();
+      if (deviceToken && !isBlocked()) {
+        return postSales("/offline/sincronizar/", {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + deviceToken,
+        }, waiting).then((result) => {
+          if (!result.ok && result.body && result.body.block_new) {
+            return lockDevice(result.body.error).then(() => recover(waiting));
+          }
+          return applyServerResults(result);
+        });
+      }
+      return recover(waiting);
     }).catch(() => {
-      note.textContent = "No se pudo sincronizar. Las ventas locales siguen guardadas.";
+      note.textContent = "No se pudo enviar. Las ventas pendientes siguen en este navegador.";
+      return refreshPending();
     });
-
-    function waitingFrom(byId) {
-      return allSales().then((sales) => sales.filter((sale) => sale.pending).map((sale) => {
-        const result = byId[sale.client_uuid];
-        if (!result || result.status === "error" && !result.folio) return Promise.resolve();
-        sale.pending = false;
-        sale.folio = result.folio || "";
-        sale.server_status = result.status || "";
-        sale.server_message = result.message || "";
-        return putSale(sale);
-      }));
-    }
   }
 
   function catalogIsStale(catalog) {
@@ -265,6 +390,10 @@
   }
 
   function charge(catalog, sales) {
+    if (isBlocked() || !token()) {
+      note.textContent = "Este navegador no puede guardar ventas nuevas. Si hay pendientes, pulsa Enviar pendientes con tu usuario.";
+      return Promise.resolve();
+    }
     if (catalogIsStale(catalog)) {
       note.textContent = "La copia de productos está vieja. Conéctate para actualizarla antes de cobrar.";
       return Promise.resolve();
@@ -342,11 +471,11 @@
         total_cents: total,
       };
       return putSale(sale).then(() => allSales()).then((saved) => {
-        const stored = saved.find((item) => item.client_uuid === sale.client_uuid);
+        const stored = saved.find((item) => item.client_uuid === sale.client_uuid && item.pending);
         if (!stored) throw new Error("missing");
         return kvSet(CART_KEY, []).then(() => {
           ticket.hidden = false;
-          ticket.innerHTML = "<p>Venta local guardada. Folio del servidor al sincronizar.</p><p>Total "
+          ticket.innerHTML = "<p>Venta local guardada. No se borra hasta que el servidor confirme el folio.</p><p>Total "
             + symbol + money.formatCents(total, places) + "</p><p>Referencia local " + sale.client_uuid + "</p>";
           form.reset();
           return refreshPending().then((nextSales) => renderCart(catalog, [], nextSales));
@@ -359,8 +488,8 @@
 
   function bootCatalog() {
     return kvGet("catalog").then((catalog) => {
-      if (!catalog) {
-        note.textContent = "Con internet, guarda el token y abre la caja una vez para copiar productos.";
+      if (!catalog || isBlocked() || !token()) {
+        if (!isBlocked()) note.textContent = "Con internet, guarda el token del dispositivo para copiar productos y registrar ventas nuevas.";
         return;
       }
       if (catalogIsStale(catalog)) {
@@ -376,25 +505,32 @@
 
   function pullCatalog() {
     const deviceToken = token();
-    if (!deviceToken || !navigator.onLine) return Promise.resolve();
-    return fetch("/offline/catalogo/", { headers: { "Authorization": "Bearer " + deviceToken } })
+    if (!deviceToken || !navigator.onLine || isBlocked()) return Promise.resolve(false);
+    return fetch("/offline/catalogo/", { headers: { Authorization: "Bearer " + deviceToken } })
       .then((response) => response.json().then((body) => ({ ok: response.ok, body })))
       .then((result) => {
         if (!result.ok) {
           authFailed(result);
           return false;
         }
-        return kvSet("catalog", result.body);
+        return kvSet("catalog", result.body).then(() => true);
       })
-      .catch(() => undefined);
+      .catch(() => false);
   }
 
   document.getElementById("token-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const value = document.getElementById("device-token").value.trim();
-    if (value && userId) localStorage.setItem(tokenKey(), value);
-    note.textContent = value ? "Token guardado en este navegador." : "Escribe el token.";
-    if (value) pullCatalog().then(bootCatalog);
+    if (!value || !userId) {
+      note.textContent = "Escribe el token.";
+      return;
+    }
+    localStorage.setItem(tokenKey(), value);
+    localStorage.removeItem(blockKey());
+    note.textContent = "Token guardado en este navegador.";
+    pullCatalog().then((saved) => {
+      if (saved) return bootCatalog();
+    });
   });
   document.getElementById("offline-search").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -404,6 +540,10 @@
   });
   document.getElementById("offline-charge").addEventListener("submit", (event) => {
     event.preventDefault();
+    if (isBlocked() || !token()) {
+      note.textContent = "Este navegador no puede guardar ventas nuevas. Si hay pendientes, pulsa Enviar pendientes con tu usuario.";
+      return;
+    }
     Promise.all([kvGet("catalog"), allSales()]).then((pair) => {
       if (pair[0]) return charge(pair[0], pair[1]);
     });
@@ -411,7 +551,8 @@
   document.getElementById("sync-now").addEventListener("click", () => { syncNow(); });
   window.addEventListener("online", () => {
     setOnline(true);
-    pullCatalog().then(() => syncNow());
+    if (token() && !isBlocked()) pullCatalog().then((saved) => { if (saved) return bootCatalog(); });
+    refreshPending();
   });
   window.addEventListener("offline", () => {
     setOnline(false);
@@ -426,7 +567,10 @@
     if (saved) document.getElementById("device-token").value = saved;
     setOnline(navigator.onLine);
     refreshPending();
-    if (navigator.onLine) pullCatalog().then((saved) => { if (saved !== false) return bootCatalog(); });
-    else bootCatalog();
+    if (navigator.onLine && saved && !isBlocked()) {
+      pullCatalog().then((copied) => { if (copied) return bootCatalog(); });
+    } else if (!navigator.onLine) {
+      bootCatalog();
+    }
   });
 })();

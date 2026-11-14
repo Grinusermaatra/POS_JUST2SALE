@@ -156,7 +156,11 @@
     </form>
   </div>
   <div id="offline-ticket" hidden></div>
-  <p><button class="secondary" type="button" id="sync-now">Sincronizar pendientes</button> <span id="pending-count"></span></p>
+  <p id="pending-count">Revisando ventas pendientes.</p>
+  <p id="pending-help"></p>
+  <ul id="pending-list"></ul>
+  <p><button class="secondary" type="button" id="sync-now">Enviar pendientes</button></p>
+  <p class="help">Una venta pendiente sigue en este navegador, a nombre de tu usuario, hasta que el servidor confirme su folio. Salir, cambiar de cuenta o revocar el dispositivo no la borra. La siguiente cuenta no la ve.</p>
 </section>
 {% endblock %}
 {% block scripts %}

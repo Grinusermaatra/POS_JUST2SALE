@@ -1,4 +1,4 @@
-const CACHE = "just2sale-shell-v2";
+const CACHE = "just2sale-shell-v3";
 const SHELL = [
   "/caja/",
   "/static/css/app.css",

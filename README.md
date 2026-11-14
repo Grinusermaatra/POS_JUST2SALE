@@ -2,7 +2,7 @@
 
 Punto de venta para un solo negocio. Se instala en una máquina local o en un servidor privado. No es un servicio con registro público, suscripciones ni sucursales.
 
-La bitácora de este trabajo está en [BitacoraPOS.md](BitacoraPOS.md). Ahí queda qué se comprobó y qué no. Venta, pago, inventario y caja operan. Mercado Libre no está integrado. No se ejecutó la batería formal de pruebas ni un simulacro de restauración.
+La bitácora de este trabajo está en [BitacoraPOS.md](BitacoraPOS.md). Ahí queda qué se comprobó y qué no. Venta, pago, inventario y caja operan con datos de prueba. El 13 de noviembre de 2026 se ejecutaron las pruebas de cobro, caja, offline, apartados, devolución, moneda, PIN, paquetes y empleado, y se restauró un respaldo en una base desechable. Mercado Libre no está integrado. No se declara listo para cobrar con dinero real: una venta offline vive en ese navegador hasta que el servidor confirma el folio, y borrar los datos del sitio la pierde.
 
 ## Requisitos
 
@@ -87,10 +87,10 @@ El PIN, en Mi cuenta, bloquea la pantalla de caja tras la inactividad configurad
 1. Un superadmin autoriza el dispositivo en Dispositivos y copia el token. Se muestra una sola vez.
 2. En la caja, con internet y con la sesión del mismo usuario del token, pega el token y guárdalo en ese navegador. Eso copia productos y precios.
 3. Si se va la conexión, la sección Sin internet de la caja permite armar la venta con esa copia y guardarla en el navegador.
-4. Al volver internet, Sincronizar pendientes la envía. El mismo identificador local no se cobra dos veces.
+4. Al volver internet, Enviar pendientes la manda. La caja dice cuántas faltan y que no se borren los datos del sitio hasta ver el folio. El mismo identificador local no se cobra dos veces.
 5. La venta entra a la caja que esté abierta en ese momento. Si no hay caja abierta, la venta se guarda y queda un conflicto de efectivo; no se altera un cierre ya hecho.
-6. Salir de la cuenta borra el token, el catálogo, las ventas pendientes y la caché de este navegador. Otro usuario en el mismo navegador no reutiliza esa sesión ni esos datos.
-7. Revocar el dispositivo impide sincronizar y, la próxima vez que ese navegador hable con el servidor, borra el token y los datos locales. Hay 48 horas de gracia después del vencimiento para enviar ventas ya guardadas, salvo que el dispositivo esté revocado.
+6. Salir o cambiar de usuario borra el token, el catálogo visible y la caché de este punto de venta. La venta pendiente se queda apartada a nombre de quien la hizo. La siguiente cuenta no la ve ni hereda el token.
+7. Revocar el dispositivo impide registrar ventas nuevas. No borra las ya guardadas. El mismo usuario entra en ese navegador y pulsa Enviar pendientes; el servidor las recibe con su sesión y, si el identificador ya existía, no crea otra venta. Hay 48 horas de gracia después del vencimiento para enviarlas con el token, salvo que el dispositivo esté revocado. Después de eso, o si ya no tiene el token, las envía con la sesión.
 
 La copia de productos se considera vieja después de las horas configuradas. Conéctate para renovarla antes de seguir cobrando sin internet.
 
@@ -128,7 +128,7 @@ Para restaurar, detén la aplicación y apunta `DATABASE_URL` a la base que vas 
 python manage.py restore_db /var/respaldos/just2sale/just2sale-AAAAMMDD-HHMMSS.dump.enc --confirmo
 ```
 
-Eso descifra el volcado y ejecuta `pg_restore --clean`. No crea el rol ni la base vacía: tienen que existir. No se ha hecho un simulacro de restauración en este trabajo. Conserva la clave en otro lugar que el disco de los respaldos; si se pierden juntos, el cifrado no ayuda.
+Eso descifra el volcado y ejecuta `pg_restore --clean`. No crea el rol ni la base vacía: tienen que existir. El 13 de noviembre de 2026 se restauró un respaldo en la base desechable `just2sale_restore`, se leyó una venta y se cobró otra; esa base y el archivo se borraron. No se restauró encima de una base en uso. Conserva la clave en otro lugar que el disco de los respaldos; si se pierden juntos, el cifrado no ayuda.
 
 ## Producción
 
@@ -141,4 +141,5 @@ Eso descifra el volcado y ejecuta `pg_restore --clean`. No crea el rol ni la bas
 - Un paquete tiene su propia existencia. Venderlo no descuenta los componentes. La receta de insumos no se descuenta al vender.
 - El cliente, si se anota, es solo nombre y teléfono.
 - La venta sin internet usa el precio de la copia local. Si no coincide con el precio del servidor, se conserva el cobrado y queda para revisión.
+- La venta pendiente se aparta en IndexedDB con el id del usuario. No está cifrada. Otra cuenta no la muestra, pero quien abra las herramientas del mismo navegador puede ver esa base. Borrar los datos del sitio, usar otro navegador o otra computadora no la recupera. Solo se quita de este navegador cuando el servidor devuelve el folio.
 - La suma de denominaciones en pantalla es una ayuda. Vale la cifra que guarda el servidor al cerrar.
