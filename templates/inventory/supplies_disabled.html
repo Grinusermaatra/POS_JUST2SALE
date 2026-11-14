@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Insumos{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Insumos desactivados</h1>
+  <p>El módulo está apagado. No se pueden consultar ni capturar insumos, consumos ni recetas. Los datos siguen guardados.</p>
+  {% if perms.core.toggle_modules %}
+  <p><a href="{% url 'settings_global' %}">Activarlo en la configuración del negocio</a></p>
+  {% else %}
+  <p>Solo el Superadmin puede volver a activarlo.</p>
+  {% endif %}
+</section>
+{% endblock %}

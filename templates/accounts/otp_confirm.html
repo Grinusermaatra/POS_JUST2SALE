@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Confirmar segundo factor{% endblock %}
+{% block content %}
+<section class="split">
+  <div class="panel">
+    <h1>Escanea el código</h1>
+    <p>Usa una aplicación de códigos de un solo uso. Después escribe el código de 6 dígitos.</p>
+    <img src="{% url 'otp_qr' %}" alt="Código QR para configurar el segundo factor" width="220" height="220">
+    <form method="post">
+      {% csrf_token %}
+      {% include "partials/form_fields.html" %}
+      <button type="submit">Confirmar</button>
+    </form>
+  </div>
+  <aside class="panel">
+    <h2>Si no puedes escanear</h2>
+    <p class="help">Abre de nuevo esta página en el teléfono o pide a quien administra el servidor que use <span class="codes">disable_otp</span> si quedas fuera.</p>
+  </aside>
+</section>
+{% endblock %}

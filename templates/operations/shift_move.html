@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Movimiento de caja{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Entrada o retiro</h1>
+  <form method="post">
+    {% csrf_token %}
+    <label>Tipo
+      <select class="control" name="direction">
+        <option value="in">Entrada</option>
+        <option value="out">Retiro</option>
+      </select>
+    </label>
+    <label>Importe
+      <input class="control" name="amount" inputmode="decimal" required>
+    </label>
+    <label>Motivo
+      <input class="control" name="reason" required maxlength="200">
+    </label>
+    <button type="submit">Registrar</button>
+    <a href="{% url 'shift_detail' shift.pk %}">Cancelar</a>
+  </form>
+</section>
+{% endblock %}

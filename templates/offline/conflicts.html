@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Conflictos{% endblock %}
+{% block content %}
+<h1>Conflictos de sincronización</h1>
+<p class="lede">Revisar un conflicto no modifica la venta ni el cierre de caja.</p>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Fecha</th><th>Venta</th><th>Detalle</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+      {% for conflict in conflicts %}
+      <tr>
+        <td>{{ conflict.created_at|date:"d/m/Y H:i" }}</td>
+        <td>{% if conflict.sale %}<a href="{% url 'sale_detail' conflict.sale.folio %}">{{ conflict.sale.folio }}</a>{% else %}—{% endif %}</td>
+        <td>{{ conflict.message }}</td>
+        <td>{% if conflict.status == "resolved" %}Revisado{% else %}Pendiente{% endif %}</td>
+        <td>
+          {% if conflict.status == "open" %}
+          <form method="post" action="{% url 'conflict_resolve' conflict.pk %}">
+            {% csrf_token %}
+            <input class="control" name="note" maxlength="200" placeholder="Qué se revisó" required>
+            <button type="submit">Marcar revisado</button>
+          </form>
+          {% else %}
+          {{ conflict.resolution_note }}
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No hay conflictos.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Ventas{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Ventas</h1>
+    <p class="lede">Una venta confirmada no se borra ni se edita.</p>
+  </div>
+  {% if perms.operations.view_all_sales %}
+  <a class="btn secondary" href="{% url 'conflict_list' %}">Conflictos de sincronización</a>
+  {% endif %}
+</div>
+<form class="filters" method="get">
+  <input class="control" type="search" name="folio" value="{{ folio }}" placeholder="Folio" aria-label="Buscar folio">
+  <button class="secondary" type="submit">Buscar</button>
+</form>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Folio</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Origen</th><th>Cajero</th></tr></thead>
+    <tbody>
+      {% for sale in page %}
+      <tr>
+        <td><a href="{% url 'sale_detail' sale.folio %}">{{ sale.folio }}</a></td>
+        <td>{{ sale.created_at|date:"d/m/Y H:i" }}</td>
+        <td>{% moneyfmt sale.total %}</td>
+        <td>{% if sale.status == "voided" %}Anulada{% else %}Confirmada{% endif %}</td>
+        <td>{% if sale.origin == "offline" %}Sin internet{% else %}En línea{% endif %}{% if sale.sync_status == "error" %} <span class="badge">revisar</span>{% endif %}</td>
+        <td>{{ sale.user.get_username }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No hay ventas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

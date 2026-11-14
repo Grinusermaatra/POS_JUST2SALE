@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Inicio · Just2Sale{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>Hola, {{ user.first_name|default:user.get_username }}</h1>
+    <p class="lede">{{ business.business_name }} · {{ business.currency_code }}</p>
+  </div>
+  {% if pos_url %}
+  <a class="btn" href="{{ pos_url }}">Ir a la caja</a>
+  {% endif %}
+</section>
+{% if role_name == "Sin rol" %}
+<p class="banner warn">Tu cuenta no tiene un rol. El propietario tiene que asignarte Empleado, Supervisor o Superadmin.</p>
+{% endif %}
+{% if low_count %}
+<p class="banner warn">{{ low_count }} producto{{ low_count|pluralize:"s" }} con existencia baja. <a href="{% url 'alerts' %}">Ver alertas</a></p>
+{% endif %}
+<div class="cards">
+  {% if perms.catalog.consult_products or perms.catalog.manage_catalog %}
+  <a class="card" href="{% url 'product_list' %}">{% icon "box" %}<h2>Productos</h2><p>Precios, códigos y existencia.</p></a>
+  {% endif %}
+  {% if perms.catalog.manage_promotions %}
+  <a class="card" href="{% url 'promotion_list' %}">{% icon "tag" %}<h2>Promociones</h2><p>Descuentos definidos antes de cobrar.</p></a>
+  {% endif %}
+  {% if perms.inventory.view_inventory_history %}
+  <a class="card" href="{% url 'movement_list' %}">{% icon "layers" %}<h2>Inventario</h2><p>Entradas, salidas y ajustes.</p></a>
+  <a class="card" href="{% url 'alerts' %}">{% icon "alert" %}<h2>Alertas</h2><p>Existencias en el límite o debajo.</p></a>
+  {% endif %}
+  {% if business.supplies_enabled and perms.inventory.manage_supplies %}
+  <a class="card" href="{% url 'supply_list' %}">{% icon "clipboard" %}<h2>Insumos</h2><p>Materias primas y recetas.</p></a>
+  {% endif %}
+  {% if perms.accounts.manage_users %}
+  <a class="card" href="{% url 'user_list' %}">{% icon "users" %}<h2>Usuarios</h2><p>Altas, roles y accesos.</p></a>
+  {% endif %}
+  {% if perms.core.change_global_config or perms.core.change_operational_config %}
+  <a class="card" href="{% url 'settings_home' %}">{% icon "settings" %}<h2>Configuración</h2><p>Moneda, impuestos y módulos.</p></a>
+  {% endif %}
+  {% if perms.core.manage_integrations %}
+  <a class="card" href="{% url 'integrations' %}">{% icon "lock" %}<h2>Integraciones</h2><p>Lo que está previsto y lo que no.</p></a>
+  {% endif %}
+  {% if perms.core.view_auditlog %}
+  <a class="card" href="{% url 'audit_list' %}">{% icon "clipboard" %}<h2>Auditoría</h2><p>Cambios que hay que poder rastrear.</p></a>
+  {% endif %}
+  <a class="card" href="{% url 'profile' %}">{% icon "home" %}<h2>Mi cuenta</h2><p>Nombre, contraseña y PIN.</p></a>
+</div>
+{% endblock %}

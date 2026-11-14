@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Cerrar caja{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Cerrar caja</h1>
+  <p>El servidor calcula el total. Esta suma en pantalla es solo una ayuda.</p>
+  <p>Efectivo esperado: <strong>{% moneyfmt expected %}</strong></p>
+  <form method="post" id="close-form" data-places="{{ business.decimal_places }}" data-symbol="{{ business.currency_symbol }}">
+    {% csrf_token %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Denominación</th><th>Cantidad</th></tr></thead>
+        <tbody>
+          {% for denom in denominations %}
+          <tr>
+            <td>{{ business.currency_symbol }}{{ denom }}</td>
+            <td>
+              <input type="hidden" name="denom" value="{{ denom }}">
+              <input class="control qty" type="number" name="count" min="0" value="0" data-denom="{{ denom }}" inputmode="numeric">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p>Contado en pantalla: <span id="counted-live">{{ business.currency_symbol }}0</span></p>
+    <label>Nota
+      <input class="control" name="note" maxlength="200">
+    </label>
+    <button type="submit">Confirmar cierre</button>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/money.js"></script>
+<script src="/static/js/cash.js"></script>
+{% endblock %}

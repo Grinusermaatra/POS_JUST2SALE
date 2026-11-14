@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Turno de caja{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Turno de caja</h1>
+    <p class="lede">
+      {% if shift.status == "open" %}Abierta{% else %}Cerrada{% endif %}
+      · {{ shift.currency_code }}
+      · abrió {{ shift.opened_by.get_username }} el {{ shift.opened_at|date:"d/m/Y H:i" }}
+    </p>
+  </div>
+  <div>
+    {% if can_move %}<a class="btn secondary" href="{% url 'shift_move' shift.pk %}">Entrada o retiro</a>{% endif %}
+    {% if can_close %}<a class="btn" href="{% url 'shift_close' shift.pk %}">Cerrar caja</a>{% endif %}
+    <a class="btn secondary" href="{% url 'pos' %}">Volver a cobrar</a>
+  </div>
+</div>
+<div class="panel">
+  <p>Fondo inicial: {% moneyfmt shift.opening_amount %}</p>
+  <p>Efectivo esperado: {% moneyfmt expected %}</p>
+  {% if shift.status == "closed" %}
+  <p>Contado: {% moneyfmt shift.counted_cash %}</p>
+  <p>Diferencia: {% moneyfmt shift.difference %}</p>
+  {% if shift.note %}<p>Nota: {{ shift.note }}</p>{% endif %}
+  <p>Cerró {{ shift.closed_by.get_username }} el {{ shift.closed_at|date:"d/m/Y H:i" }}.</p>
+  {% endif %}
+</div>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Hora</th><th>Movimiento</th><th>Importe</th><th>Motivo</th><th>Usuario</th></tr></thead>
+    <tbody>
+      {% for move in movements %}
+      <tr>
+        <td>{{ move.created_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ move.get_movement_type_display }}{% if not move.affects_expected %} <span class="badge">no altera el cierre</span>{% endif %}</td>
+        <td>{% moneyfmt move.amount %}</td>
+        <td>{{ move.reason }}</td>
+        <td>{{ move.user.get_username }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">Todavía no hay movimientos.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if can_correct %}
+<form class="panel" method="post" action="{% url 'shift_correct' shift.pk %}">
+  {% csrf_token %}
+  <h2>Corrección auditada</h2>
+  <p>Queda en el historial. El efectivo esperado, el contado y la diferencia del cierre no cambian.</p>
+  <label>Tipo
+    <select class="control" name="direction">
+      <option value="in">Entrada</option>
+      <option value="out">Retiro</option>
+    </select>
+  </label>
+  <label>Importe
+    <input class="control" name="amount" inputmode="decimal" required>
+  </label>
+  <label>Motivo
+    <input class="control" name="reason" required maxlength="200">
+  </label>
+  <button type="submit">Registrar corrección</button>
+</form>
+{% endif %}
+{% endblock %}

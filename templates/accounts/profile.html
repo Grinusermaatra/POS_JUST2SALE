@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Mi cuenta{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Mi cuenta</h1>
+    <p class="lede">{{ user.get_username }} · {{ role_label }}</p>
+  </div>
+  {% if otp_allowed %}
+  <a class="btn secondary" href="{% url 'otp_status' %}">Segundo factor</a>
+  {% endif %}
+</div>
+<form class="panel" method="post" id="perfil">
+  {% csrf_token %}
+  {% include "partials/form_fields.html" %}
+  <p class="help">El PIN solo desbloquea la pantalla de caja. No sustituye tu contraseña.</p>
+  <button type="submit">Guardar</button>
+</form>
+{% endblock %}

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Caja{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Caja</h1>
+    <p class="lede">Cobra con el precio vigente. El inventario se descuenta al confirmar.</p>
+  </div>
+  <div>
+    {% if shift and can_see_shift %}
+    <a class="btn secondary" href="{% url 'shift_detail' shift.pk %}">Caja abierta</a>
+    {% elif shift %}
+    <span class="badge">Caja abierta</span>
+    {% elif perms.operations.open_register %}
+    <a class="btn" href="{% url 'shift_open' %}">Abrir caja</a>
+    {% else %}
+    <span class="badge">Caja cerrada</span>
+    {% endif %}
+    {% if has_pin %}
+    <form method="post" action="{% url 'register_block' %}" class="inline">
+      {% csrf_token %}
+      <button class="secondary" type="submit">Bloquear</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% if shift %}
+<p>Efectivo esperado: {% moneyfmt expected %}</p>
+{% else %}
+<p class="banner warn">Abre la caja antes de cobrar en efectivo.</p>
+{% endif %}
+
+<div class="pos">
+  <section>
+    <form class="filters" method="get" action="{% url 'pos' %}">
+      <input class="control" type="search" name="q" value="{{ query }}" placeholder="Nombre o código" aria-label="Buscar producto" autofocus>
+      <button class="secondary" type="submit">Buscar</button>
+    </form>
+    {% if matches %}
+    <div class="table-wrap panel">
+      <table>
+        <thead><tr><th>Producto</th><th>Código</th><th>Precio</th><th>Disponible</th><th></th></tr></thead>
+        <tbody>
+          {% for product in matches %}
+          <tr>
+            <td>{{ product.name }}</td>
+            <td>{{ product.code }}</td>
+            <td>{% moneyfmt product.price %}</td>
+            <td>{{ product.stock }}</td>
+            <td>
+              <form method="post" action="{% url 'pos_add' %}">
+                {% csrf_token %}
+                <input type="hidden" name="product_id" value="{{ product.pk }}">
+                <input class="control qty" type="number" name="quantity" min="1" value="1" aria-label="Cantidad de {{ product.name }}">
+                <button type="submit">Agregar</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% elif query %}
+    <p>No hay productos activos con esa búsqueda.</p>
+    {% endif %}
+  </section>
+  <aside class="pos-side panel">
+    <h2>Venta</h2>
+    {% if rows %}
+    <table>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            {{ row.product.name }}
+            {% if row.promotion %}<span class="badge ok">{{ row.promotion.name }}</span>{% endif %}
+            <form method="post" action="{% url 'pos_qty' %}">
+              {% csrf_token %}
+              <input type="hidden" name="product_id" value="{{ row.product.pk }}">
+              <input class="control qty" type="number" name="quantity" min="0" value="{{ row.quantity }}" aria-label="Cantidad de {{ row.product.name }}">
+              <button class="secondary" type="submit">Actualizar</button>
+            </form>
+          </td>
+          <td>{% moneyfmt row.line_total %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="totals">Total {% moneyfmt total %}</p>
+    <form method="post" action="{% url 'pos_charge' %}">
+      {% csrf_token %}
+      <label>Efectivo recibido
+        <input class="control" name="cash_tendered" inputmode="decimal" autocomplete="off">
+      </label>
+      <label>Tarjeta en terminal externa
+        <input class="control" name="card_amount" inputmode="decimal" autocomplete="off">
+      </label>
+      <label>Referencia de la terminal
+        <input class="control" name="card_reference" maxlength="40" autocomplete="off">
+      </label>
+      <label><input type="checkbox" name="card_confirmed"> La terminal externa ya cobró</label>
+      <label>Nombre del cliente, si lo da
+        <input class="control" name="customer_name" maxlength="120">
+      </label>
+      <label>Teléfono, si lo da
+        <input class="control" name="customer_phone" maxlength="20">
+      </label>
+      <button type="submit">Cobrar</button>
+    </form>
+    <form method="post" action="{% url 'pos_clear' %}">
+      {% csrf_token %}
+      <button class="secondary" type="submit">Vaciar</button>
+    </form>
+    {% else %}
+    <p>El carrito está vacío.</p>
+    {% endif %}
+  </aside>
+</div>
+
+<section class="panel" id="offline-root"
+  data-places="{{ business.decimal_places }}"
+  data-tax="{{ business.tax_rate }}"
+  data-include="{% if business.prices_include_tax %}1{% else %}0{% endif %}"
+  data-symbol="{{ business.currency_symbol }}"
+  data-currency="{{ business.currency_code }}"
+  data-stale="{{ business.offline_stale_hours }}">
+  <h2>Sin internet</h2>
+  <p class="net"><span class="dot" id="net-dot"></span> <span id="net-label">Revisando conexión</span></p>
+  <p id="offline-note"></p>
+  <form id="token-form">
+    <label>Token de este dispositivo
+      <input class="control" id="device-token" autocomplete="off" spellcheck="false">
+    </label>
+    <button class="secondary" type="submit">Guardar en este navegador</button>
+  </form>
+  <div id="offline-sale" hidden>
+    <form id="offline-search" class="filters">
+      <input class="control" id="offline-query" type="search" placeholder="Buscar en la copia local" aria-label="Buscar sin internet">
+      <button class="secondary" type="submit">Buscar</button>
+    </form>
+    <div id="offline-matches"></div>
+    <div id="offline-cart"></div>
+    <form id="offline-charge">
+      <label>Efectivo recibido
+        <input class="control" name="cash_tendered" inputmode="decimal" autocomplete="off">
+      </label>
+      <label>Tarjeta en terminal externa
+        <input class="control" name="card_amount" inputmode="decimal" autocomplete="off">
+      </label>
+      <label>Referencia de la terminal
+        <input class="control" name="card_reference" maxlength="40" autocomplete="off">
+      </label>
+      <label><input type="checkbox" name="card_confirmed"> La terminal externa ya cobró</label>
+      <button type="submit">Guardar venta local</button>
+    </form>
+  </div>
+  <div id="offline-ticket" hidden></div>
+  <p id="pending-count">Revisando ventas pendientes.</p>
+  <p id="pending-help"></p>
+  <ul id="pending-list"></ul>
+  <p><button class="secondary" type="button" id="sync-now">Enviar pendientes</button></p>
+  <p class="help">Una venta pendiente sigue en este navegador, a nombre de tu usuario, hasta que el servidor confirme su folio. Salir, cambiar de cuenta o revocar el dispositivo no la borra. La siguiente cuenta no la ve.</p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/money.js"></script>
+<script src="/static/js/offline.js"></script>
+{% endblock %}

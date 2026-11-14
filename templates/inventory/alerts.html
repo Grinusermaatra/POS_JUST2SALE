@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Alertas de existencia{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Existencias bajas</h1>
+    <p class="lede">La alerta general es {{ default }}. Un producto puede tener la suya.</p>
+  </div>
+  {% if can_adjust %}<a class="btn" href="{% url 'movement_create' %}">Registrar movimiento</a>{% endif %}
+</div>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Producto</th><th>Existencia</th><th>Alerta</th></tr></thead>
+    <tbody>
+      {% for product in rows %}
+      <tr>
+        <td><a href="{% url 'product_detail' product.pk %}">{{ product.name }}</a></td>
+        <td>{{ product.stock }}</td>
+        <td>{{ product.alert_at }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">Ningún producto activo está en o bajo su alerta.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

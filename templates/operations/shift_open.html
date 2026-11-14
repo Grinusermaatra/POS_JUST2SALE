@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Abrir caja{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Abrir caja</h1>
+  <p>Moneda de esta caja: {{ currency }}. No se puede cambiar con la caja abierta.</p>
+  {% if existing %}
+  <p class="banner warn">Ya hay una caja abierta.</p>
+  <a class="btn" href="{% url 'shift_detail' existing.pk %}">Ver la caja abierta</a>
+  {% else %}
+  <form method="post">
+    {% csrf_token %}
+    <label>Fondo inicial
+      <input class="control" name="opening_amount" inputmode="decimal" value="0" required>
+    </label>
+    <button type="submit">Abrir</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

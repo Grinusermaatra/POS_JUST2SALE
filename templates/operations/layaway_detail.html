@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Apartado {{ layaway.folio }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Apartado {{ layaway.folio }}</h1>
+    <p class="lede">{{ layaway.get_status_display }} · vence {{ layaway.expires_at|date:"d/m/Y H:i" }}</p>
+  </div>
+  {% if layaway.sale %}<a class="btn secondary" href="{% url 'sale_detail' layaway.sale.folio %}">Venta {{ layaway.sale.folio }}</a>{% endif %}
+</div>
+<p>{{ layaway.customer_name }} {{ layaway.customer_phone }}</p>
+<p>{{ layaway.policy_text }}</p>
+<ul>
+  {% for line in lines %}
+  <li>{{ line.quantity }} × {{ line.product.name }} · {% moneyfmt line.line_total %}</li>
+  {% endfor %}
+</ul>
+<p>Total {% moneyfmt total %} · Pagado {% moneyfmt paid %} · Saldo {% moneyfmt balance %}</p>
+<ul>
+  {% for payment in payments %}
+  <li>{{ payment.created_at|date:"d/m/Y H:i" }} · {% moneyfmt payment.amount %} · {{ payment.method }}</li>
+  {% endfor %}
+</ul>
+{% if can_pay %}
+<form class="panel" method="post" action="{% url 'layaway_pay' layaway.folio %}">
+  {% csrf_token %}
+  <h2>Abono</h2>
+  <label>Importe
+    <input class="control" name="amount" inputmode="decimal" required>
+  </label>
+  <label>Forma
+    <select class="control" name="method">
+      <option value="cash">Efectivo</option>
+      <option value="card">Tarjeta en terminal externa</option>
+    </select>
+  </label>
+  <label>Referencia
+    <input class="control" name="reference" maxlength="40">
+  </label>
+  <label><input type="checkbox" name="card_confirmed"> La terminal externa ya cobró</label>
+  <button type="submit">Registrar pago</button>
+</form>
+{% endif %}
+{% if can_manage %}
+<form class="panel" method="post" action="{% url 'layaway_extend' layaway.folio %}">
+  {% csrf_token %}
+  <h2>Extender</h2>
+  <label>Días
+    <input class="control" type="number" name="days" min="1" value="7">
+  </label>
+  <label>Motivo
+    <input class="control" name="reason" required maxlength="200">
+  </label>
+  <button type="submit">Extender vigencia</button>
+</form>
+<form class="panel" method="post" action="{% url 'layaway_cancel' layaway.folio %}">
+  {% csrf_token %}
+  <h2>Cancelar</h2>
+  <label>Motivo
+    <input class="control" name="reason" required maxlength="200">
+  </label>
+  <button class="secondary" type="submit">Cancelar apartado</button>
+</form>
+{% endif %}
+{% if layaway.cancel_reason %}<p>Cancelación: {{ layaway.cancel_reason }}</p>{% endif %}
+{% endblock %}

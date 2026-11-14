@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Movimiento de {{ supply.name }}{% endblock %}
+{% block content %}
+<h1>Movimiento de {{ supply.name }}</h1>
+<p class="help">Existencia actual: {{ supply.stock }} {{ supply.get_unit_display }}.</p>
+<form class="panel" method="post">{% csrf_token %}{% include "partials/form_fields.html" %}<button type="submit">Registrar</button></form>
+{% endblock %}

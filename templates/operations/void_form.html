@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Anular {{ sale.folio }}{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Anular {{ sale.folio }}</h1>
+  <p>La venta queda en el historial. El inventario regresa y el efectivo se registra como movimiento, sin editar un cierre ya confirmado.</p>
+  {% if card_total %}
+  <p class="banner warn">Esta venta tiene tarjeta. El reembolso no se da por hecho aquí: queda pendiente hasta que confirmes la operación en la terminal externa y anotes su referencia.</p>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <label>Motivo
+      <input class="control" name="reason" required maxlength="200">
+    </label>
+    {% if card_total %}
+    <label>Referencia de la terminal
+      <input class="control" name="card_reference" maxlength="40" autocomplete="off">
+    </label>
+    <label><input type="checkbox" name="card_confirmed"> La terminal externa ya reembolsó</label>
+    {% endif %}
+    <button type="submit">Anular venta</button>
+    <a href="{% url 'sale_detail' sale.folio %}">Cancelar</a>
+  </form>
+</section>
+{% endblock %}

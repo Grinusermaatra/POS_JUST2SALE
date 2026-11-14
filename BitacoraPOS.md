@@ -1,0 +1,361 @@
+# Bitácora Just2Sale
+
+Zona horaria de todos los registros: America/Mexico_City.
+
+## 2026-11-10 20:00 — Inicio y estado inicial
+
+### Qué hay en el repositorio
+
+- Un solo commit, `Initial commit`.
+- El único archivo de aplicación es `README.md`, con el título `# POS_JUST2SALE`.
+- No hay modelos, pantallas, dependencias, instrucciones de arquitectura ni convenciones de código.
+- El prototipo HTML experimental no está en este repositorio. No se va a buscar, copiar ni implementar.
+
+### Arquitectura que se va a construir
+
+Instalación de un solo negocio, en la máquina local o en un servidor privado. No hay registro público, suscripciones, multi-negocio ni multi-sucursal.
+
+- Django y PostgreSQL. El dinero se calcula con `Decimal`, nunca con punto flotante.
+- Grupos y permisos nativos de Django. Cada acción se valida en el servidor.
+- Interfaz servida por Django, en español, usable en computadora y teléfono.
+- Color principal `#BB8744`, fondo `#F5F1EA`.
+- Moneda inicial MXN. USD queda como alternativa de la instalación, una moneda por venta y por turno.
+- La operación en línea (venta, pago, inventario y caja) funciona con formularios en el servidor, aunque el navegador no ejecute JavaScript.
+- Sin conexión: aplicación web instalable en el navegador (service worker e IndexedDB) solo en un dispositivo autorizado antes, con ventas locales de identificador único y sincronización idempotente. El detalle se cierra en la etapa 2.
+- Secretos solo en variables de entorno.
+- Zona horaria de la aplicación: America/Mexico_City.
+
+### Decisiones
+
+- El cajero ve la existencia disponible porque la necesita para cobrar. No ve costos, historial de inventario ni ajustes.
+- Un paquete tiene existencia propia. Venderlo no descuenta sus componentes. La composición queda guardada. Armar un paquete es una entrada de inventario.
+- La receta producto–insumo se guarda y no descuenta insumos al vender.
+- No se borra un usuario con ventas u otros movimientos: se desactiva. Hace falta conservar quién operó.
+- Mercado Libre no se integra ni se simula.
+- Las pruebas formales no se ejecutan en este trabajo. Al final queda su lista priorizada. Una verificación de humo, si se corre, se anota aparte y no sustituye esa lista.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | pendiente |
+| Roles y permisos validados en el servidor | pendiente |
+| Usuarios y recuperación de la cuenta propietaria | pendiente |
+| 2FA opcional para Superadmin y Supervisor | pendiente |
+| Bloqueo de caja por inactividad y PIN | pendiente |
+| Productos, paquetes, precios e historial | pendiente |
+| Códigos QR y de barras | pendiente |
+| Promociones | pendiente |
+| Inventario, alertas e historial | pendiente |
+| Insumos y recetas, con el módulo apagable | pendiente |
+| Venta, pagos, ticket e inventario de la venta | pendiente |
+| Caja, denominaciones, entradas y retiros | pendiente |
+| Pedidos | pendiente |
+| Apartados | pendiente |
+| Devoluciones y anulaciones | pendiente |
+| Offline y sincronización | pendiente |
+| Reportes y exportación | pendiente |
+| Respaldo cifrado y restauración | pendiente |
+| Instalación y documentación de operación | pendiente |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
+
+### Límites ya visibles
+
+- No hay batería formal de pruebas ejecutada.
+- El MVP no está listo: venta, pago, inventario y caja todavía no operan.
+
+## 2026-11-10 20:27 — Cierre de la etapa 1
+
+La base quedó instalable: Django 5.2, PostgreSQL, roles y el catálogo. No incluye todavía la caja.
+
+### Qué opera
+
+- Entrada con usuario y contraseña, validadores de Django (mínimo 10 caracteres) y bloqueo tras 5 intentos por usuario y por IP durante 15 minutos.
+- Roles Superadmin, Supervisor y Empleado. Las pantallas niegan la acción en el servidor, no solo ocultan el enlace.
+- Alta, edición y baja de usuarios. Si el usuario ya tiene historial, no se borra: se desactiva. La cuenta propietaria del servidor no se degrada desde la web.
+- Recuperación en el servidor: `changepassword`, `disable_otp`, `assign_role`, `create_owner`.
+- Segundo factor opcional (TOTP y códigos de un solo uso) para Superadmin y Supervisor.
+- Productos y paquetes, precio con historial y motivo, códigos QR y de barras para imprimir o descargar.
+- Promociones con vigencia y productos. No se acumulan: al cobrar se usará la que más descuente.
+- Entradas, salidas y ajustes de inventario con motivo, usuario y hora. No dejan la existencia en negativo.
+- Alertas configurables. El cajero ve la existencia y el precio, no el costo ni el historial.
+- Insumos, consumos, ajustes y receta. Apagar el módulo bloquea esas pantallas y conserva los datos. Vender no descuenta insumos.
+- Configuración global y operativa. Integración de Mercado Libre descrita como no implementada, sin simulación.
+- Auditoría de cambios de precio, promoción, inventario manual, permisos y encendido del módulo.
+
+### Verificación hecha
+
+Cliente HTTP de Django, el 2026-11-10 alrededor de las 20:27. Cubrió entrada, rechazos por rol, alta de producto, existencia que no baja de cero, cambio de precio sin tocar la existencia, PNG de código de barras, promoción, composición de paquete, apagado de insumos y segundo factor con código de respaldo. No es la batería formal. Falta recorrer las pantallas en el navegador junto con la caja.
+
+### Sigue pendiente
+
+El bloqueo de la caja por inactividad y el PIN: el gancho está, la pantalla no. Venta, pagos, ticket, caja, pedidos, apartados, devoluciones, anulaciones, offline, reportes, respaldo y la guía completa de operación.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | implementada |
+| Roles y permisos validados en el servidor | implementada |
+| Usuarios y recuperación de la cuenta propietaria | implementada |
+| 2FA opcional para Superadmin y Supervisor | implementada |
+| Bloqueo de caja por inactividad y PIN | pendiente |
+| Productos, paquetes, precios e historial | implementada |
+| Códigos QR y de barras | implementada |
+| Promociones | implementada |
+| Inventario, alertas e historial | implementada |
+| Insumos y recetas, con el módulo apagable | implementada |
+| Venta, pagos, ticket e inventario de la venta | pendiente |
+| Caja, denominaciones, entradas y retiros | pendiente |
+| Pedidos | pendiente |
+| Apartados | pendiente |
+| Devoluciones y anulaciones | pendiente |
+| Offline y sincronización | pendiente |
+| Reportes y exportación | pendiente |
+| Respaldo cifrado y restauración | pendiente |
+| Instalación y documentación de operación | en proceso |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
+
+## 2026-11-10 20:49 — Cierre de la etapa 2
+
+Venta, pago, inventario de la venta y caja operan en el servidor. No es el cierre del MVP: faltan reportes, respaldo y la guía completa.
+
+### Qué opera
+
+- Caja en `/caja/`. Buscar producto, armar el carrito y cobrar. El precio es el vigente y la promoción aplicada es una sola, la de mayor descuento por unidad.
+- Efectivo con cambio. Tarjeta solo si se confirma el cobro en la terminal externa. El pago mixto cubre el total; el cambio sale solo del efectivo. No se guarda un número de tarjeta.
+- Al confirmar, se descuenta la existencia una vez y queda el movimiento. No se vende por debajo de cero ni por debajo de lo apartado.
+- Ticket con folio. La venta confirmada no se edita ni se borra.
+- Abrir un turno, entradas y retiros con motivo, y cierre por denominaciones. El total lo calcula el servidor. Un segundo cierre no cambia el esperado, el contado ni la diferencia.
+- Anular exige motivo, regresa la existencia y registra el efectivo en la caja abierta. No reescribe un cierre ya confirmado. Si la caja de esa venta ya cerró, hace falta otra caja abierta para el reembolso.
+- Devolución parcial, con o sin reingreso. No se devuelve más de lo vendido. El reembolso puede ser efectivo, tarjeta externa o saldo a favor.
+- Pedido: no mueve inventario hasta que se cobra, y entonces usa el precio vigente.
+- Apartado: el anticipo es mayor que cero y menor que el total. Reserva existencia sin descontarla. Se descuenta al liquidar. La política del anticipo queda copiada en el apartado.
+- Offline: un superadmin autoriza un dispositivo y el token se muestra una vez. `POST /offline/sincronizar/` guarda la venta con el identificador local. Repetir el mismo identificador no vuelve a descontar. Si no hay caja abierta, la venta se conserva y queda un conflicto de efectivo, sin tocar un cierre. El navegador guarda el token, una copia del catálogo y las ventas locales en IndexedDB, y las envía al volver la conexión. Esa parte del navegador no se recorrió en un navegador.
+- Bloqueo de la pantalla de caja con PIN de 4 a 6 dígitos, definido en Mi cuenta. El PIN no inicia sesión. Sin PIN no hay bloqueo.
+
+### Verificación hecha
+
+Cliente HTTP de Django, el 2026-11-10 alrededor de las 20:49, contra PostgreSQL local. Cubrió: abrir caja, venta en efectivo con cambio y descuento de existencia, rechazo de tarjeta sin confirmar y de tarjeta mayor al total, pago mixto, rechazo por falta de existencia, cierre con denominaciones, segundo cierre sin cambiar el conteo, anulación que regresa existencia sin alterar el cierre, devolución que no se duplica, pedido que descuenta solo al cobrar, apartado que reserva sin descontar, sincronización offline idempotente, rechazo sin token, y bloqueo/desbloqueo con PIN. Los usuarios y productos de esa prueba se borraron. No es la batería formal. No se abrió el navegador.
+
+### Límites de esta etapa
+
+- La venta local dentro del navegador (service worker, IndexedDB y la suma en pantalla del cierre) está escrita y no se ejecutó en un navegador.
+- Una venta offline se carga a la caja que esté abierta al sincronizar. Si ya no hay caja abierta, no se mete el efectivo a un cierre anterior.
+- El descuento offline que supere la promoción vigente se conserva y queda para revisión. No se reescribe la venta.
+- Mercado Libre sigue sin implementar.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | implementada |
+| Roles y permisos validados en el servidor | implementada |
+| Usuarios y recuperación de la cuenta propietaria | implementada |
+| 2FA opcional para Superadmin y Supervisor | implementada |
+| Bloqueo de caja por inactividad y PIN | implementada |
+| Productos, paquetes, precios e historial | implementada |
+| Códigos QR y de barras | implementada |
+| Promociones | implementada |
+| Inventario, alertas e historial | implementada |
+| Insumos y recetas, con el módulo apagable | implementada |
+| Venta, pagos, ticket e inventario de la venta | implementada |
+| Caja, denominaciones, entradas y retiros | implementada |
+| Pedidos | implementada |
+| Apartados | implementada |
+| Devoluciones y anulaciones | implementada |
+| Offline y sincronización | implementada |
+| Reportes y exportación | pendiente |
+| Respaldo cifrado y restauración | pendiente |
+| Instalación y documentación de operación | en proceso |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
+
+## 2026-11-10 21:06 — Cierre de la etapa 3
+
+Reportes, instalación, respaldo y la guía de operación quedaron en el repositorio. No se corrió la batería formal ni un simulacro de restauración.
+
+### Qué opera
+
+- Reportes en `/reportes/` para quien tiene el permiso de reportes financieros. Día, semana, mes o un rango, y filtros por producto, usuario y método. El total es de ventas confirmadas. Las anuladas no entran. Las devoluciones del periodo se muestran aparte y no se restan solas. CSV y Excel exportan el filtro visible. Cada consulta y cada exportación queda en la auditoría. El empleado recibe 403.
+- `backup_db` hace `pg_dump` en formato custom, lo cifra con Fernet y borra los `just2sale-*.dump.enc` más viejos que `BACKUP_RETENTION_DAYS` (14 si no se dice otra cosa). `restore_db RUTA --confirmo` descifra y ejecuta `pg_restore --clean`. Hay que detener la aplicación y la base de destino ya tiene que existir.
+- El README describe instalación, caja, offline, reportes, respaldo y límites.
+
+### Verificación hecha
+
+- Cliente HTTP, alrededor de las 20:54: un superusuario vio la venta del día, descargó CSV y Excel, y un empleado recibió 403. Esas ventas de prueba se borraron.
+- `backup_db` escribió un archivo en un directorio temporal, se descifró y el contenido empezaba con el encabezado de `pg_dump`. El archivo se borró. No se restauró ninguna base.
+- Navegador, alrededor de las 20:59, con un usuario temporal ya borrado: abrir caja con 100, vender un café de 25 cobrando 50 en efectivo, ticket `V000008` con cambio de 25, cierre con la suma en pantalla, esperado 125, contado 100 y diferencia -25, y el folio en reportes. A 390 px de ancho la pantalla del cierre no se salía del marco. No se recorrió en el navegador la venta guardada en IndexedDB ni la sincronización desde esa pantalla.
+
+### Sigue pendiente
+
+- Mercado Libre, sin simulación.
+- Simulacro de restauración sobre una copia de la base.
+- La batería de pruebas de abajo. No está ejecutada.
+
+### Pruebas posteriores, en este orden
+
+1. Dos cobros a la vez del mismo producto cuando queda una pieza.
+2. Venta sin internet en el navegador: guardar, recargar, sincronizar, repetir el mismo identificador, catálogo viejo, token revocado y caja ya cerrada.
+3. Apartado hasta liquidar, vencer, cancelar con cada política de anticipo, y comprobar que la reserva no deja la existencia negativa.
+4. Devolución en efectivo con la caja cerrada, sin reingreso, y por encima de lo vendido.
+5. Cambio de moneda o decimales con la caja abierta.
+6. PIN por inactividad, sin usar el botón de bloquear.
+7. Paquete: venderlo no descuenta componentes. La receta no descuenta insumos.
+8. Promoción única, la de mayor descuento, sin acumular.
+9. Empleado sin costos, sin anular, sin reportes. Supervisor sin usuarios.
+10. Restaurar un respaldo en una base vacía de prueba y cobrar después.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | implementada |
+| Roles y permisos validados en el servidor | implementada |
+| Usuarios y recuperación de la cuenta propietaria | implementada |
+| 2FA opcional para Superadmin y Supervisor | implementada |
+| Bloqueo de caja por inactividad y PIN | implementada |
+| Productos, paquetes, precios e historial | implementada |
+| Códigos QR y de barras | implementada |
+| Promociones | implementada |
+| Inventario, alertas e historial | implementada |
+| Insumos y recetas, con el módulo apagable | implementada |
+| Venta, pagos, ticket e inventario de la venta | implementada |
+| Caja, denominaciones, entradas y retiros | implementada |
+| Pedidos | implementada |
+| Apartados | implementada |
+| Devoluciones y anulaciones | implementada |
+| Offline y sincronización | implementada |
+| Reportes y exportación | implementada |
+| Respaldo cifrado y restauración | implementada; el volcado cifrado se generó y se descifró. La restauración no se ejecutó |
+| Instalación y documentación de operación | implementada |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
+
+## 2026-11-13 18:19 — Correcciones y pruebas
+
+Se corrigieron cuatro hallazgos y se corrió la batería con datos de prueba, en una base local recién migrada. Esos usuarios, productos, ventas y la base restaurada se borraron al terminar. No se tocó información de un negocio real. Mercado Libre sigue sin implementar y el prototipo HTML no se incorporó.
+
+### Correcciones
+
+1. Sesión del navegador. El token queda guardado por usuario (`just2sale.deviceToken.` más el id). Al cerrar sesión, al entrar otro usuario o al encontrar el token viejo sin usuario, se borran el token, el catálogo, las ventas pendientes y las cachés `just2sale` del service worker. Si el servidor rechaza el dispositivo (revocado, vencido fuera de la gracia, usuario distinto o sin permiso de cobrar), responde `wipe` y el navegador hace lo mismo. Resultado: corregido. La comprobación en el navegador está en la prueba 2. Pendiente: una venta que todavía no se sincronizó se pierde si se revoca el dispositivo o se cierra la sesión antes de enviarla. Es el comportamiento pedido para que otra persona no la vea.
+
+2. Devolución y anulación con tarjeta. Guardar el registro ya no marca el reembolso como hecho. Queda `Pendiente de terminal` hasta que alguien confirma que la terminal externa lo hizo y anota una referencia de al menos 3 caracteres. Una referencia de solo dígitos largos, como un número de tarjeta, se rechaza. No hay pasarela ni reembolso simulado. El efectivo y el saldo a favor sí quedan registrados al guardarse, porque salen de esta caja o de este sistema. Resultado: corregido y comprobado en la misma sesión, antes del navegador. Una devolución de tarjeta sin confirmación quedó `pending` y sin referencia. La referencia `12` fue rechazada. `TERM-DEV-1` la confirmó. Una anulación de tarjeta dejó la venta anulada y el reembolso de la terminal en `pending`.
+
+3. Detalle de caja. Quien abrió el turno y puede cobrar, abrir o cerrar ve el suyo. Quien tiene reportes o movimientos de caja, y un supervisor o superusuario que puede cerrar, ve los demás. Un cajero que cambia el id de la URL recibe 403. Resultado: corregido. El dueño de prueba vio un turno ajeno (200) y el cajero recibió 403 en el turno del dueño.
+
+4. Fecha de las devoluciones. El reporte filtra y muestra la devolución por la fecha en que se registró, no por la fecha de la venta. El total de ventas no resta lo devuelto. Lo pendiente de terminal se muestra aparte y no entra en lo ya devuelto. Resultado: corregido. Una venta con fecha de hace 3 días apareció solo en ese día. Su devolución, registrada hoy, apareció solo en las devoluciones de hoy.
+
+### Pruebas
+
+Los datos llevaban el prefijo `smoke` o `SMOKE` y una contraseña de prueba. Se borraron. Estados: aprobada, fallida o no ejecutada.
+
+1. Dos cobros a la vez con una pieza. Ejecutada y aprobada. Dos hilos cobraron el mismo producto con existencia 1. Uno respondió que no había existencia y el otro confirmó. La existencia quedó en 0 y hubo una sola venta.
+
+2. Navegador, sin internet. Ejecutada y aprobada en Chrome, contra la pantalla real de `/caja/`, IndexedDB y el service worker. Se guardó una venta de `SMOKE-OFF` sin red, se recargó la página sin red y el mismo identificador seguía pendiente. Al volver la red se sincronizó una sola vez (`V000012` en la segunda pasada; la primera había dejado `V000010`). Reenviar ese identificador devolvió el mismo folio y no creó otra venta. Con el catálogo fechado en 2020 el cobro se negó y no agregó pendientes. Con la caja ya cerrada, la venta quedó confirmada, en estado de error, con conflicto de caja y sin turno; el esperado del cierre no cambió. Al revocar el dispositivo, la recarga borró el token y las ventas locales y dejó solo el id de usuario. Cerrar sesión dejó `/entrar/` sin claves `just2sale` y sin cachés de ese nombre. El segundo usuario no heredó token ni ventas. La primera pasada falló por el clic del automatizador y por un mensaje de revocación que la pantalla pisaba; se corrigió para conservar el aviso y se volvió a correr.
+
+3. Apartados. Ejecutada y aprobada. Cinco apartados de una pieza sobre existencia 6. La existencia no bajó y lo disponible quedó en 1. Vender 2 piezas fue rechazado. Liquidar uno bajó la existencia a 5. El vencido siguió reservando y no dejó la existencia negativa. Cancelar reembolsó, dejó saldo a favor o retuvo el anticipo según la política, sin movimiento de reembolso en la política de retener.
+
+4. Devolución en efectivo con la caja original cerrada y sin reingreso. Ejecutada y aprobada. El estado quedó confirmado, la existencia no cambió, el esperado del cierre original no cambió y el reembolso salió de la caja abierta. No se probó devolver más piezas de las vendidas; el formulario ya limita la cantidad a lo que queda de la venta.
+
+5. Moneda con la caja abierta. Ejecutada y aprobada. El formulario de negocio se quedó en la página, mostró que hay que cerrar la caja y la moneda siguió en MXN.
+
+6. Bloqueo por inactividad y PIN. Ejecutada y aprobada por HTTP, con el middleware real: se atrasó `register_seen` 10 minutos, `/caja/` redirigió a la pantalla bloqueada, el PIN `0000` no abrió y el PIN `1234` sí. No se esperó el minuto de inactividad mirando el navegador.
+
+7. Paquetes, recetas y una promoción. Ejecutada y aprobada. Vender el paquete no movió el componente. Vender el producto con receta no movió el insumo. De un 10 % y un descuento fijo de 5 sobre un precio de 100, se aplicó solo el de 10.00.
+
+8. Empleado. Ejecutada y aprobada. Vio su propio turno (200), recibió 403 en el turno de otra persona y en `/reportes/`, y la ficha del producto no mostró el costo.
+
+9. Restaurar un respaldo. Ejecutada y aprobada sobre una base desechable, no sobre la base de trabajo. `backup_db` escribió `/tmp/j2s-restore/just2sale-20261113-181750.dump.enc`. Se creó `just2sale_restore`, `restore_db` con `--confirmo` terminó sin error y la aplicación, apuntando a esa base, leyó `V000012` con cantidad 1 y cobró `V000014`, dejando la existencia de prueba en 0. Después se eliminó la base y el archivo cifrado. No se restauró encima de la base que usa el servidor de desarrollo.
+
+### Sigue pendiente
+
+- Mercado Libre, sin simulación.
+- El bloqueo por inactividad no se cronometró en una pantalla abierta.
+- Una restauración encima de la base que está en uso no se hizo. El simulacro fue una base nueva, que es lo que pide la prueba, y luego se borró.
+- El punto de venta no se declara listo para operar un negocio: estas pruebas son de una base local de prueba y queda el riesgo de perder una venta offline si se cierra la sesión o se revoca el dispositivo antes de sincronizar.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | implementada |
+| Roles y permisos validados en el servidor | implementada |
+| Usuarios y recuperación de la cuenta propietaria | implementada |
+| 2FA opcional para Superadmin y Supervisor | implementada |
+| Bloqueo de caja por inactividad y PIN | implementada; la prueba atrasó la sesión, no esperó el minuto en pantalla |
+| Productos, paquetes, precios e historial | implementada |
+| Códigos QR y de barras | implementada |
+| Promociones | implementada |
+| Inventario, alertas e historial | implementada |
+| Insumos y recetas, con el módulo apagable | implementada |
+| Venta, pagos, ticket e inventario de la venta | implementada |
+| Caja, denominaciones, entradas y retiros | implementada |
+| Pedidos | implementada |
+| Apartados | implementada |
+| Devoluciones y anulaciones | implementada; el reembolso de tarjeta queda pendiente hasta confirmar la terminal |
+| Offline y sincronización | implementada; el flujo del navegador de la prueba 2 quedó aprobado |
+| Reportes y exportación | implementada; las devoluciones usan la fecha de registro |
+| Respaldo cifrado y restauración | implementada; el simulacro sobre `just2sale_restore` quedó aprobado y esa base se borró |
+| Instalación y documentación de operación | implementada |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
+
+## 2026-11-13 18:44 — Ventas offline pendientes y pruebas en el navegador
+
+La corrección anterior borraba la venta pendiente al salir, al cambiar de usuario o al revocar el dispositivo. Eso evitaba que otra persona la viera, y también la perdía antes de que el servidor confirmara el folio. Quedó corregido y comprobado en Chrome, con datos SMOKE, en la base aislada `just2sale_smoke`. Esa base no es la de trabajo. Al terminar se elimina. No se conectó una terminal ni se registró un cobro real. Mercado Libre no se integró.
+
+### Corrección
+
+La venta pendiente se guarda en IndexedDB `just2sale-pending-` más el id del usuario. El catálogo y el carrito siguen en otra base, `just2sale`.
+
+- Al cerrar sesión o cambiar de usuario se borra el token, el catálogo visible y la caché del service worker. La base de pendientes de ese usuario no se toca. La siguiente cuenta abre la suya y no ve la lista ni el token.
+- Al revocar el dispositivo, el servidor responde `block_new`. El navegador quita el token y deja de aceptar ventas nuevas. La pendiente sigue. El mismo usuario, con internet, pulsa Enviar pendientes. Eso usa su sesión en `/offline/recuperar/`, no el token revocado.
+- El navegador solo quita la venta local cuando la respuesta trae folio. Si el servidor no confirma, si falta el folio o si no hay red, la venta sigue. Repetir el identificador devuelve la venta ya guardada y no crea otra ni otro pago ni otro movimiento.
+- La caja muestra cuántas hay, la referencia local y que no se borren los datos del sitio hasta ver el folio.
+
+Límites del navegador: la venta no está cifrada. Otra cuenta no la muestra, pero las herramientas del mismo navegador pueden abrir esa base. Borrar los datos del sitio, otro navegador u otra computadora no la recupera. Si la cuenta que la hizo no puede volver a entrar, desde aquí no hay otra forma de enviarla.
+
+Resultado: corregido. No se da por bueno solo por dejar los datos guardados: en la prueba 5 el mismo usuario las vio, las envió y el servidor confirmó el folio.
+
+### Pruebas en el navegador
+
+Ejecutadas el 2026-11-13 alrededor de las 18:44, hora America/Mexico_City, contra `http://127.0.0.1:8001` y la base `just2sale_smoke`. Usuarios `smoke-super`, `smoke-supervisor` y `smoke-empleado`. Productos `SMOKE-CAJA`, `SMOKE-OFF` y `SMOKE-CARD`.
+
+1. Roles. Aprobada. Superadmin y supervisor entraron a reportes (200). El empleado recibió 403 en reportes y 403 en `/caja/turno/1/`, el turno del supervisor.
+2. Venta en efectivo. Aprobada. Fondo inicial 100. `SMOKE-CAJA` a 25, efectivo 50. Ticket `V000001`, cambio $25.00. La pantalla de caja mostró existencia 9.
+3. Cierre. Aprobada. Esperado $125.00 antes de confirmar. Conteo de un billete de 100, uno de 20 y uno de 5. Después del cierre: esperado $125.00, contado $125.00, diferencia $0.00.
+4. Offline. Aprobada. Se guardó una venta, se recargó sin internet y siguió la referencia `4a2ea1ff-fa28-49fd-95f4-5d97f6241ce0`. Al enviar, el servidor confirmó `V000002`: 1 venta, 1 pago y 1 movimiento de inventario, cantidad 1. Reenviar ese identificador devolvió el mismo folio y dejó esos tres conteos en 1. La existencia de `SMOKE-OFF` quedó en 7.
+5. Sesión, otro usuario y revocación. Aprobada. Al reconectar, la nueva venta seguía pendiente. Salir dejó esa venta, borró el token y las cachés `just2sale`. El empleado vio «No hay ventas pendientes» y no tenía token; la venta del supervisor seguía en su base. Al volver el supervisor, la pantalla indicó pulsar Enviar pendientes. Con el token otra vez guardado, revocar el dispositivo dejó la pendiente, mostró que no se pueden registrar ventas nuevas y no la borró. Enviar pendientes confirmó `V000003` una sola vez: 1 venta, 1 pago, 1 movimiento. Un intento de guardar otra venta local no creó pendientes.
+6. Devolución de tarjeta. Aprobada. La venta `V000004` se registró con la confirmación del cajero y la referencia `SMOKE-TERM`, sin terminal conectada. La devolución en tarjeta, sin marcar la confirmación ni anotar referencia, quedó en pantalla como «Pendiente de la terminal externa» y en la base como `pending`, referencia vacía, tipo `return`. No se simuló el reembolso ni se confirmó después.
+
+No hubo pruebas fallidas ni omitidas en esta lista.
+
+### Sigue pendiente
+
+- Mercado Libre, sin simulación.
+- Borrar los datos del navegador, o usar otro navegador, pierde la venta que el servidor todavía no confirmó.
+- No se restauró un respaldo encima de la base en uso. El simulacro anterior fue la base `just2sale_restore`, ya borrada.
+- No se declara el punto de venta listo para operar con datos o dinero reales.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | implementada |
+| Roles y permisos validados en el servidor | implementada |
+| Usuarios y recuperación de la cuenta propietaria | implementada |
+| 2FA opcional para Superadmin y Supervisor | implementada |
+| Bloqueo de caja por inactividad y PIN | implementada; la prueba anterior atrasó la sesión, no esperó el minuto en pantalla |
+| Productos, paquetes, precios e historial | implementada |
+| Códigos QR y de barras | implementada |
+| Promociones | implementada |
+| Inventario, alertas e historial | implementada |
+| Insumos y recetas, con el módulo apagable | implementada |
+| Venta, pagos, ticket e inventario de la venta | implementada; venta, ticket, cambio y existencia comprobados en el navegador |
+| Caja, denominaciones, entradas y retiros | implementada; apertura y cierre comprobados en el navegador |
+| Pedidos | implementada |
+| Apartados | implementada |
+| Devoluciones y anulaciones | implementada; la devolución de tarjeta queda pendiente hasta la terminal |
+| Offline y sincronización | implementada; la pendiente se conserva al salir, cambiar de usuario o revocar, y se recupera con la sesión |
+| Reportes y exportación | implementada; el empleado recibe 403 |
+| Respaldo cifrado y restauración | implementada; el simulacro del 13 de noviembre sobre `just2sale_restore` quedó aprobado y esa base se borró |
+| Instalación y documentación de operación | implementada |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |

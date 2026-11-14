@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}Ticket {{ sale.folio }}{% endblock %}
+{% block content %}
+<article class="panel ticket">
+  <h1>{{ business.business_name }}</h1>
+  <p>{{ sale.folio }} · {{ sale.created_at|date:"d/m/Y H:i" }}</p>
+  <p>Atendió {{ sale.user.get_username }}</p>
+  <table>
+    <tbody>
+      {% for line in lines %}
+      <tr>
+        <td>{{ line.quantity }} × {{ line.name_snapshot }}</td>
+        <td>{% moneyfmt line.line_total %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p>Subtotal {% moneyfmt sale.subtotal %}</p>
+  <p>Impuesto {% moneyfmt sale.tax_total %}</p>
+  <p class="totals">Total {% moneyfmt sale.total %}</p>
+  {% for payment in payments %}
+  <p>{{ payment.get_method_display }} {% moneyfmt payment.amount %}</p>
+  {% endfor %}
+  <p>Cambio {% moneyfmt sale.change_given %}</p>
+  {% if sale.status == "voided" %}<p class="banner warn">Venta anulada</p>{% endif %}
+</article>
+<p class="no-print"><button type="button" data-print>Imprimir</button> <a href="{% url 'pos' %}">Nueva venta</a></p>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/print.js"></script>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load pos_tags %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ product.name }}</h1>
+    <p class="lede">{{ product.get_kind_display }} · {{ product.code }}</p>
+  </div>
+  {% if can_manage %}
+  <div class="actions">
+    <a class="btn secondary" href="{% url 'product_edit' product.pk %}">Editar</a>
+    <a class="btn" href="{% url 'product_print' product.pk %}">Imprimir códigos</a>
+  </div>
+  {% endif %}
+</div>
+<div class="split">
+  <section class="panel">
+    {% if product.description %}<p>{{ product.description }}</p>{% endif %}
+    <p>Precio de lista: <strong>{% moneyfmt product.price %}</strong></p>
+    {% if promo %}
+    <p>Con {{ promo.name }}: <strong>{% moneyfmt promo_price %}</strong>. No se acumula con otra promoción.</p>
+    {% endif %}
+    {% if show_cost %}<p>Costo: {% moneyfmt product.cost %}</p>{% endif %}
+    <p>Existencia: <strong>{{ product.stock }}</strong>{% if low %} <span class="badge">Baja (alerta en {{ threshold }})</span>{% endif %}</p>
+    <p>{% if product.is_active %}<span class="badge ok">Activo</span>{% else %}<span class="badge off">Inactivo</span>{% endif %}</p>
+  </section>
+  <aside class="panel">
+    {% if can_manage %}
+    <h2>Códigos</h2>
+    <p><a href="{% url 'product_qr' product.pk %}?descarga=1">Descargar QR</a></p>
+    <p><a href="{% url 'product_barcode' product.pk %}?descarga=1">Descargar código de barras</a></p>
+    {% else %}
+    <p class="help">El código para cobrar es {{ product.code }}.</p>
+    {% endif %}
+  </aside>
+</div>
+{% if product.kind == "package" and can_manage %}
+<section class="panel" style="margin-top: 0.8rem;">
+  <h2>Composición del paquete</h2>
+  <p class="help">El paquete tiene su propia existencia. Venderlo no descuenta estos componentes. Armarlo es una entrada de inventario del paquete.</p>
+  {% if components %}
+  <ul>
+    {% for line in components %}
+    <li>
+      {{ line.quantity }} × {{ line.component.name }}
+      <form method="post" action="{% url 'package_remove' product.pk line.pk %}" style="display:inline">{% csrf_token %}<button class="secondary small" type="submit">Quitar</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Todavía no tiene componentes.</p>
+  {% endif %}
+  <form method="post" action="{% url 'package_add' product.pk %}" class="filters">
+    {% csrf_token %}
+    <select name="component" class="control" aria-label="Componente">
+      {% for item in component_choices %}<option value="{{ item.pk }}">{{ item.name }}</option>{% endfor %}
+    </select>
+    <input class="control" type="number" name="quantity" min="1" value="1" aria-label="Cantidad">
+    <button type="submit">Agregar</button>
+  </form>
+</section>
+{% endif %}
+{% if can_recipe %}
+<p><a href="{% url 'recipe_edit' product.pk %}">Receta de insumos</a>. Guardarla no descuenta insumos al vender.</p>
+{% elif not supplies_on and can_manage %}
+<p class="help">El módulo de insumos está apagado. Las recetas que ya existan se conservan y no se pueden editar.</p>
+{% endif %}
+{% if show_history %}
+<section class="panel" style="margin-top: 0.8rem;">
+  <h2>Historial de precio</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Cuándo</th><th>De</th><th>A</th><th>Motivo</th><th>Quién</th></tr></thead>
+      <tbody>
+        {% for row in product.price_history.all %}
+        <tr>
+          <td>{{ row.created_at|date:"d/m/Y H:i" }}</td>
+          <td>{% moneyfmt row.old_price %}</td>
+          <td>{% moneyfmt row.new_price %}</td>
+          <td>{{ row.reason }}</td>
+          <td>{{ row.user.get_username }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">Sin cambios.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

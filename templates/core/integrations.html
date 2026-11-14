@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Integraciones{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Integraciones</h1>
+  <h2>Terminal de Mercado Libre</h2>
+  <p>No está implementada. Just2Sale no simula ese cobro ni guarda una referencia como si la terminal hubiera respondido.</p>
+  <p>El pago con tarjeta del MVP es el registro manual después de que el cajero confirma el cobro en una terminal externa. No se pide número de tarjeta ni CVV.</p>
+  <p>Si más adelante se conecta Mercado Libre, el token vivirá en una variable de entorno, no en esta base, y los avisos de pago tendrán que verificarse sin duplicar cobros.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Código · Just2Sale{% endblock %}
+{% block content %}
+<section class="panel" style="max-width: 28rem;">
+  <h1>Código de verificación</h1>
+  <p class="lede">Este paso es para Superadmin y Supervisor que activaron el segundo factor.</p>
+  <form method="post">
+    {% csrf_token %}
+    {% include "partials/form_fields.html" %}
+    <button type="submit">Continuar</button>
+  </form>
+</section>
+{% endblock %}
