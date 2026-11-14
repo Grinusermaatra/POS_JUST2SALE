@@ -163,6 +163,9 @@ class Payment(models.Model):
 
 
 class ReturnRecord(models.Model):
+    CONFIRMED = "confirmed"
+    PENDING = "pending"
+
     folio = models.CharField(max_length=20, unique=True)
     sale = models.ForeignKey(Sale, on_delete=models.PROTECT, related_name="returns")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
@@ -170,12 +173,45 @@ class ReturnRecord(models.Model):
     reason = models.CharField(max_length=200)
     refund_method = models.CharField(max_length=16)
     refund_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    refund_status = models.CharField(max_length=16, default=CONFIRMED)
+    external_reference = models.CharField(max_length=80, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
         permissions = [
             ("create_return", "Registrar devoluciones"),
         ]
+
+
+class ExternalRefund(models.Model):
+    """Reembolso de tarjeta en una terminal que no controla este sistema."""
+
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    VOID = "void"
+    RETURN = "return"
+
+    sale = models.ForeignKey(Sale, on_delete=models.PROTECT, related_name="external_refunds")
+    return_record = models.ForeignKey(
+        ReturnRecord, null=True, blank=True, on_delete=models.PROTECT, related_name="external_refunds"
+    )
+    kind = models.CharField(max_length=16)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=16, default=PENDING)
+    reference = models.CharField(max_length=80, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="external_refunds")
+    created_at = models.DateTimeField(default=timezone.now)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="external_refunds_confirmed",
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class ReturnLine(models.Model):

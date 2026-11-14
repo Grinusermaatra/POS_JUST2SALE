@@ -7,7 +7,10 @@
   const pricesIncludeTax = root.dataset.include === "1";
   const symbol = root.dataset.symbol || "$";
   const staleHours = Number(root.dataset.stale || "24");
-  const TOKEN_KEY = "just2sale.deviceToken";
+  const userId = document.body.dataset.userId || "";
+  function tokenKey() {
+    return "just2sale.deviceToken." + userId;
+  }
   const CART_KEY = "cart";
 
   const dot = document.getElementById("net-dot");
@@ -19,6 +22,12 @@
   const ticket = document.getElementById("offline-ticket");
   const pending = document.getElementById("pending-count");
 
+  let openDb = null;
+  window.J2SOfflineClose = () => {
+    if (openDb) openDb.close();
+    openDb = null;
+  };
+
   function db() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open("just2sale", 1);
@@ -27,7 +36,10 @@
         if (!database.objectStoreNames.contains("kv")) database.createObjectStore("kv");
         if (!database.objectStoreNames.contains("sales")) database.createObjectStore("sales", { keyPath: "client_uuid" });
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        openDb = request.result;
+        resolve(request.result);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -72,7 +84,29 @@
   }
 
   function token() {
-    return localStorage.getItem(TOKEN_KEY) || "";
+    if (!userId) return "";
+    return localStorage.getItem(tokenKey()) || "";
+  }
+
+  function forgetDevice(message) {
+    localStorage.removeItem(tokenKey());
+    const input = document.getElementById("device-token");
+    if (input) input.value = "";
+    return (window.J2SSession ? window.J2SSession.wipe() : Promise.resolve()).then(() => {
+      if (userId) localStorage.setItem("just2sale.userId", userId);
+      note.textContent = message || "Se borraron el token y los datos locales de este navegador.";
+      if (pending) pending.textContent = "Nada pendiente";
+      if (cartBox) cartBox.innerHTML = "";
+      if (matches) matches.innerHTML = "";
+    });
+  }
+
+  function authFailed(result) {
+    if (result.body && result.body.wipe) {
+      return forgetDevice(result.body.error);
+    }
+    note.textContent = (result.body && result.body.error) || "No se pudo usar el dispositivo.";
+    return Promise.resolve();
   }
 
   function bestUnitDiscount(product, promotions) {
@@ -202,10 +236,7 @@
       }).then((response) => response.json().then((body) => ({ ok: response.ok, body })));
     }).then((result) => {
       if (!result) return;
-      if (!result.ok) {
-        note.textContent = (result.body && result.body.error) || "No se pudo sincronizar.";
-        return;
-      }
+      if (!result.ok) return authFailed(result);
       const byId = {};
       (result.body.results || []).forEach((item) => { byId[item.client_uuid] = item; });
       return waitingFrom(byId).then((jobs) => Promise.all(jobs)).then(() => refreshPending()).then(() => {
@@ -228,7 +259,16 @@
     }
   }
 
+  function catalogIsStale(catalog) {
+    const age = Date.now() - Date.parse(catalog.fetched_at);
+    return !(age >= 0) || age > staleHours * 3600 * 1000;
+  }
+
   function charge(catalog, sales) {
+    if (catalogIsStale(catalog)) {
+      note.textContent = "La copia de productos está vieja. Conéctate para actualizarla antes de cobrar.";
+      return Promise.resolve();
+    }
     const form = document.getElementById("offline-charge");
     return kvGet(CART_KEY).then((cart) => {
       const lines = cart || [];
@@ -323,8 +363,7 @@
         note.textContent = "Con internet, guarda el token y abre la caja una vez para copiar productos.";
         return;
       }
-      const age = Date.now() - Date.parse(catalog.fetched_at);
-      if (age > staleHours * 3600 * 1000) {
+      if (catalogIsStale(catalog)) {
         note.textContent = "La copia de productos tiene más de " + staleHours + " horas. Conéctate para actualizarla antes de cobrar.";
         return;
       }
@@ -342,8 +381,8 @@
       .then((response) => response.json().then((body) => ({ ok: response.ok, body })))
       .then((result) => {
         if (!result.ok) {
-          note.textContent = result.body.error || "No se pudo copiar el catálogo.";
-          return;
+          authFailed(result);
+          return false;
         }
         return kvSet("catalog", result.body);
       })
@@ -353,7 +392,7 @@
   document.getElementById("token-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const value = document.getElementById("device-token").value.trim();
-    if (value) localStorage.setItem(TOKEN_KEY, value);
+    if (value && userId) localStorage.setItem(tokenKey(), value);
     note.textContent = value ? "Token guardado en este navegador." : "Escribe el token.";
     if (value) pullCatalog().then(bootCatalog);
   });
@@ -378,13 +417,16 @@
     setOnline(false);
     bootCatalog();
   });
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
-  }
-  const saved = token();
-  if (saved) document.getElementById("device-token").value = saved;
-  setOnline(navigator.onLine);
-  refreshPending();
-  if (navigator.onLine) pullCatalog().then(bootCatalog);
-  else bootCatalog();
+  const start = window.J2SSession ? window.J2SSession.ready : Promise.resolve();
+  start.then(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+    }
+    const saved = token();
+    if (saved) document.getElementById("device-token").value = saved;
+    setOnline(navigator.onLine);
+    refreshPending();
+    if (navigator.onLine) pullCatalog().then((saved) => { if (saved !== false) return bootCatalog(); });
+    else bootCatalog();
+  });
 })();

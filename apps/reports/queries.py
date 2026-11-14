@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from django.db.models import Sum
 from django.utils import timezone
 
-from apps.operations.models import Payment, ReturnRecord, Sale, SaleLine
+from apps.operations.models import ExternalRefund, Payment, ReturnRecord, Sale, SaleLine
 
 
 def period_bounds(periodo, start_text, end_text):
@@ -75,18 +75,57 @@ def report_rows(*, periodo, start_text, end_text, product_id, user_id, method):
                 }
             )
         total = sales.aggregate(value=Sum("total"))["value"] or 0
-    returns = ReturnRecord.objects.filter(
-        sale__in=Sale.objects.filter(created_at__gte=start_at, created_at__lt=end_at)
+    returns = ReturnRecord.objects.filter(created_at__gte=start_at, created_at__lt=end_at).select_related(
+        "sale", "user"
     )
     if user_id:
         returns = returns.filter(user_id=user_id)
-    refunded = returns.aggregate(value=Sum("refund_amount"))["value"] or 0
+    if method in {Payment.CASH, Payment.CARD}:
+        returns = returns.filter(refund_method=method)
+    return_rows = []
+    for record in returns.order_by("created_at", "id"):
+        return_rows.append(
+            {
+                "folio": record.folio,
+                "venta": record.sale.folio,
+                "fecha": timezone.localtime(record.created_at),
+                "cajero": record.user.get_username(),
+                "total": record.refund_amount,
+                "estado": "Pendiente de terminal" if record.refund_status == ReturnRecord.PENDING else "Registrada",
+                "metodo": record.refund_method,
+            }
+        )
+    voids = ExternalRefund.objects.filter(
+        kind=ExternalRefund.VOID, created_at__gte=start_at, created_at__lt=end_at
+    ).select_related("sale", "user")
+    if user_id:
+        voids = voids.filter(user_id=user_id)
+    if method == Payment.CASH:
+        voids = voids.none()
+    for refund in voids.order_by("created_at", "id"):
+        return_rows.append(
+            {
+                "folio": f"Anulación {refund.sale.folio}",
+                "venta": refund.sale.folio,
+                "fecha": timezone.localtime(refund.created_at),
+                "cajero": refund.user.get_username(),
+                "total": refund.amount,
+                "estado": "Pendiente de terminal" if refund.status == ExternalRefund.PENDING else "Confirmada en terminal",
+                "metodo": "card",
+            }
+        )
+    refunded = returns.filter(refund_status=ReturnRecord.CONFIRMED).aggregate(value=Sum("refund_amount"))["value"] or 0
+    pending_returns = returns.filter(refund_status=ReturnRecord.PENDING).aggregate(value=Sum("refund_amount"))["value"] or 0
+    pending_voids = voids.filter(status=ExternalRefund.PENDING).aggregate(value=Sum("amount"))["value"] or 0
+    confirmed_voids = voids.filter(status=ExternalRefund.CONFIRMED).aggregate(value=Sum("amount"))["value"] or 0
     return {
         "label": label,
         "start": start,
         "end": end,
         "rows": rows,
+        "returns": return_rows,
         "total": total,
         "count": len(rows),
-        "refunded": refunded,
+        "refunded": refunded + confirmed_voids,
+        "pending_refund": pending_returns + pending_voids,
     }

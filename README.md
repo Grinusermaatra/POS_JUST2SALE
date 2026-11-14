@@ -73,9 +73,12 @@ Los permisos se comprueban en el servidor.
 3. Cobra en Caja. El efectivo puede incluir cambio. La tarjeta queda pagada solo si marcas que la terminal externa ya cobró. Un pago mixto tiene que cubrir el total y el cambio sale del efectivo.
 4. El inventario se descuenta al confirmar. La venta no se edita ni se borra.
 5. Para cerrar, cuenta las denominaciones. El servidor calcula el total, lo esperado y la diferencia. Ese cierre no se vuelve a editar. Una corrección posterior queda en el historial y no cambia esas tres cifras.
+6. El detalle de un turno y sus movimientos lo ven quien lo abrió y los roles con permiso de reportes o de movimientos de caja. Un cajero no abre el cierre de otro turno cambiando el número en la dirección.
 6. Entradas y retiros piden motivo. Un retiro no puede dejar el efectivo esperado en negativo.
 
 Si la caja de una venta ya cerró, anularla o reembolsarla en efectivo exige otra caja abierta. El cierre anterior no se modifica.
+
+Un reembolso de tarjeta no se marca como hecho al guardarlo. Queda pendiente hasta que alguien confirme que la terminal externa ya lo hizo y anote la referencia de esa terminal. No se guarda el número de tarjeta.
 
 El PIN, en Mi cuenta, bloquea la pantalla de caja tras la inactividad configurada. No sustituye la contraseña. Sin PIN no hay bloqueo.
 
@@ -86,13 +89,14 @@ El PIN, en Mi cuenta, bloquea la pantalla de caja tras la inactividad configurad
 3. Si se va la conexión, la sección Sin internet de la caja permite armar la venta con esa copia y guardarla en el navegador.
 4. Al volver internet, Sincronizar pendientes la envía. El mismo identificador local no se cobra dos veces.
 5. La venta entra a la caja que esté abierta en ese momento. Si no hay caja abierta, la venta se guarda y queda un conflicto de efectivo; no se altera un cierre ya hecho.
-6. Revocar el dispositivo impide sincronizar. Hay 48 horas de gracia después del vencimiento para enviar ventas ya guardadas.
+6. Salir de la cuenta borra el token, el catálogo, las ventas pendientes y la caché de este navegador. Otro usuario en el mismo navegador no reutiliza esa sesión ni esos datos.
+7. Revocar el dispositivo impide sincronizar y, la próxima vez que ese navegador hable con el servidor, borra el token y los datos locales. Hay 48 horas de gracia después del vencimiento para enviar ventas ya guardadas, salvo que el dispositivo esté revocado.
 
 La copia de productos se considera vieja después de las horas configuradas. Conéctate para renovarla antes de seguir cobrando sin internet.
 
 ## Reportes
 
-Superadmin y supervisor ven Reportes: día, semana, mes, o un rango, y pueden filtrar por producto, usuario y método. La exportación es CSV o Excel del filtro visible. El empleado recibe un rechazo del servidor. Cada consulta y cada exportación queda en la auditoría.
+Superadmin y supervisor ven Reportes: día, semana, mes, o un rango, y pueden filtrar por producto, usuario y método. El total de ventas usa la fecha de la venta. Las devoluciones se listan por la fecha en que se registraron y no se restan de ese total. La exportación es CSV o Excel del filtro visible. El empleado recibe un rechazo del servidor. Cada consulta y cada exportación queda en la auditoría.
 
 ## Respaldo
 

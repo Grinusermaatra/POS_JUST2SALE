@@ -69,7 +69,10 @@ def catalog_api(request):
         return JsonResponse({"error": "No autorizado."}, status=401)
     device = device_from_request(request)
     if device is None or not device.is_active or device.user_id != request.user.id:
-        return JsonResponse({"error": "Este navegador no está autorizado para operar sin internet."}, status=403)
+        return JsonResponse(
+            {"error": "Este navegador no está autorizado para operar sin internet.", "wipe": True},
+            status=403,
+        )
     config = get_business()
     now = timezone.now()
     products = [
@@ -119,9 +122,9 @@ def sync_api(request):
         return JsonResponse({"error": "Usa POST."}, status=405)
     device = device_from_request(request)
     if not device_can_sync(device):
-        return JsonResponse({"error": "Dispositivo no autorizado o revocado."}, status=401)
+        return JsonResponse({"error": "Dispositivo no autorizado o revocado.", "wipe": True}, status=401)
     if not device.user.is_active or not (device.user.has_perm("operations.sell") or device.user.is_superuser):
-        return JsonResponse({"error": "El usuario del dispositivo no puede cobrar."}, status=403)
+        return JsonResponse({"error": "El usuario del dispositivo no puede cobrar.", "wipe": True}, status=403)
     try:
         payload = json.loads(request.body.decode("utf-8") or "{}")
     except json.JSONDecodeError:

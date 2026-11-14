@@ -229,3 +229,71 @@ Reportes, instalación, respaldo y la guía de operación quedaron en el reposit
 | Respaldo cifrado y restauración | implementada; el volcado cifrado se generó y se descifró. La restauración no se ejecutó |
 | Instalación y documentación de operación | implementada |
 | Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |
+
+## 2026-11-13 18:19 — Correcciones y pruebas
+
+Se corrigieron cuatro hallazgos y se corrió la batería con datos de prueba, en una base local recién migrada. Esos usuarios, productos, ventas y la base restaurada se borraron al terminar. No se tocó información de un negocio real. Mercado Libre sigue sin implementar y el prototipo HTML no se incorporó.
+
+### Correcciones
+
+1. Sesión del navegador. El token queda guardado por usuario (`just2sale.deviceToken.` más el id). Al cerrar sesión, al entrar otro usuario o al encontrar el token viejo sin usuario, se borran el token, el catálogo, las ventas pendientes y las cachés `just2sale` del service worker. Si el servidor rechaza el dispositivo (revocado, vencido fuera de la gracia, usuario distinto o sin permiso de cobrar), responde `wipe` y el navegador hace lo mismo. Resultado: corregido. La comprobación en el navegador está en la prueba 2. Pendiente: una venta que todavía no se sincronizó se pierde si se revoca el dispositivo o se cierra la sesión antes de enviarla. Es el comportamiento pedido para que otra persona no la vea.
+
+2. Devolución y anulación con tarjeta. Guardar el registro ya no marca el reembolso como hecho. Queda `Pendiente de terminal` hasta que alguien confirma que la terminal externa lo hizo y anota una referencia de al menos 3 caracteres. Una referencia de solo dígitos largos, como un número de tarjeta, se rechaza. No hay pasarela ni reembolso simulado. El efectivo y el saldo a favor sí quedan registrados al guardarse, porque salen de esta caja o de este sistema. Resultado: corregido y comprobado en la misma sesión, antes del navegador. Una devolución de tarjeta sin confirmación quedó `pending` y sin referencia. La referencia `12` fue rechazada. `TERM-DEV-1` la confirmó. Una anulación de tarjeta dejó la venta anulada y el reembolso de la terminal en `pending`.
+
+3. Detalle de caja. Quien abrió el turno y puede cobrar, abrir o cerrar ve el suyo. Quien tiene reportes o movimientos de caja, y un supervisor o superusuario que puede cerrar, ve los demás. Un cajero que cambia el id de la URL recibe 403. Resultado: corregido. El dueño de prueba vio un turno ajeno (200) y el cajero recibió 403 en el turno del dueño.
+
+4. Fecha de las devoluciones. El reporte filtra y muestra la devolución por la fecha en que se registró, no por la fecha de la venta. El total de ventas no resta lo devuelto. Lo pendiente de terminal se muestra aparte y no entra en lo ya devuelto. Resultado: corregido. Una venta con fecha de hace 3 días apareció solo en ese día. Su devolución, registrada hoy, apareció solo en las devoluciones de hoy.
+
+### Pruebas
+
+Los datos llevaban el prefijo `smoke` o `SMOKE` y una contraseña de prueba. Se borraron. Estados: aprobada, fallida o no ejecutada.
+
+1. Dos cobros a la vez con una pieza. Ejecutada y aprobada. Dos hilos cobraron el mismo producto con existencia 1. Uno respondió que no había existencia y el otro confirmó. La existencia quedó en 0 y hubo una sola venta.
+
+2. Navegador, sin internet. Ejecutada y aprobada en Chrome, contra la pantalla real de `/caja/`, IndexedDB y el service worker. Se guardó una venta de `SMOKE-OFF` sin red, se recargó la página sin red y el mismo identificador seguía pendiente. Al volver la red se sincronizó una sola vez (`V000012` en la segunda pasada; la primera había dejado `V000010`). Reenviar ese identificador devolvió el mismo folio y no creó otra venta. Con el catálogo fechado en 2020 el cobro se negó y no agregó pendientes. Con la caja ya cerrada, la venta quedó confirmada, en estado de error, con conflicto de caja y sin turno; el esperado del cierre no cambió. Al revocar el dispositivo, la recarga borró el token y las ventas locales y dejó solo el id de usuario. Cerrar sesión dejó `/entrar/` sin claves `just2sale` y sin cachés de ese nombre. El segundo usuario no heredó token ni ventas. La primera pasada falló por el clic del automatizador y por un mensaje de revocación que la pantalla pisaba; se corrigió para conservar el aviso y se volvió a correr.
+
+3. Apartados. Ejecutada y aprobada. Cinco apartados de una pieza sobre existencia 6. La existencia no bajó y lo disponible quedó en 1. Vender 2 piezas fue rechazado. Liquidar uno bajó la existencia a 5. El vencido siguió reservando y no dejó la existencia negativa. Cancelar reembolsó, dejó saldo a favor o retuvo el anticipo según la política, sin movimiento de reembolso en la política de retener.
+
+4. Devolución en efectivo con la caja original cerrada y sin reingreso. Ejecutada y aprobada. El estado quedó confirmado, la existencia no cambió, el esperado del cierre original no cambió y el reembolso salió de la caja abierta. No se probó devolver más piezas de las vendidas; el formulario ya limita la cantidad a lo que queda de la venta.
+
+5. Moneda con la caja abierta. Ejecutada y aprobada. El formulario de negocio se quedó en la página, mostró que hay que cerrar la caja y la moneda siguió en MXN.
+
+6. Bloqueo por inactividad y PIN. Ejecutada y aprobada por HTTP, con el middleware real: se atrasó `register_seen` 10 minutos, `/caja/` redirigió a la pantalla bloqueada, el PIN `0000` no abrió y el PIN `1234` sí. No se esperó el minuto de inactividad mirando el navegador.
+
+7. Paquetes, recetas y una promoción. Ejecutada y aprobada. Vender el paquete no movió el componente. Vender el producto con receta no movió el insumo. De un 10 % y un descuento fijo de 5 sobre un precio de 100, se aplicó solo el de 10.00.
+
+8. Empleado. Ejecutada y aprobada. Vio su propio turno (200), recibió 403 en el turno de otra persona y en `/reportes/`, y la ficha del producto no mostró el costo.
+
+9. Restaurar un respaldo. Ejecutada y aprobada sobre una base desechable, no sobre la base de trabajo. `backup_db` escribió `/tmp/j2s-restore/just2sale-20261113-181750.dump.enc`. Se creó `just2sale_restore`, `restore_db` con `--confirmo` terminó sin error y la aplicación, apuntando a esa base, leyó `V000012` con cantidad 1 y cobró `V000014`, dejando la existencia de prueba en 0. Después se eliminó la base y el archivo cifrado. No se restauró encima de la base que usa el servidor de desarrollo.
+
+### Sigue pendiente
+
+- Mercado Libre, sin simulación.
+- El bloqueo por inactividad no se cronometró en una pantalla abierta.
+- Una restauración encima de la base que está en uso no se hizo. El simulacro fue una base nueva, que es lo que pide la prueba, y luego se borró.
+- El punto de venta no se declara listo para operar un negocio: estas pruebas son de una base local de prueba y queda el riesgo de perder una venta offline si se cierra la sesión o se revoca el dispositivo antes de sincronizar.
+
+### Funciones
+
+| Función | Estado |
+| --- | --- |
+| Autenticación, contraseñas y límite de intentos | implementada |
+| Roles y permisos validados en el servidor | implementada |
+| Usuarios y recuperación de la cuenta propietaria | implementada |
+| 2FA opcional para Superadmin y Supervisor | implementada |
+| Bloqueo de caja por inactividad y PIN | implementada; la prueba atrasó la sesión, no esperó el minuto en pantalla |
+| Productos, paquetes, precios e historial | implementada |
+| Códigos QR y de barras | implementada |
+| Promociones | implementada |
+| Inventario, alertas e historial | implementada |
+| Insumos y recetas, con el módulo apagable | implementada |
+| Venta, pagos, ticket e inventario de la venta | implementada |
+| Caja, denominaciones, entradas y retiros | implementada |
+| Pedidos | implementada |
+| Apartados | implementada |
+| Devoluciones y anulaciones | implementada; el reembolso de tarjeta queda pendiente hasta confirmar la terminal |
+| Offline y sincronización | implementada; el flujo del navegador de la prueba 2 quedó aprobado |
+| Reportes y exportación | implementada; las devoluciones usan la fecha de registro |
+| Respaldo cifrado y restauración | implementada; el simulacro sobre `just2sale_restore` quedó aprobado y esa base se borró |
+| Instalación y documentación de operación | implementada |
+| Integración con terminal de Mercado Libre | pendiente, fase futura, sin simulación |

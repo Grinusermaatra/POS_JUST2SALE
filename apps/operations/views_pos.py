@@ -10,6 +10,7 @@ from apps.catalog.models import Product
 from apps.core.models import get_business
 from apps.core.money import money
 from apps.operations.carts import add_line, set_qty
+from apps.operations.access import can_see_shift
 from apps.operations.cashbox import current_shift, expected_cash
 from apps.operations.checkout import CheckoutError, confirm_sale
 from apps.operations.moneycalc import quote_catalog_line
@@ -84,6 +85,7 @@ def pos_home(request):
             "query": query,
             "matches": matches,
             "shift": shift,
+            "can_see_shift": bool(shift and can_see_shift(request.user, shift)),
             "expected": expected_cash(shift, config.decimal_places) if shift else None,
             "has_pin": has_pin,
             "inactivity": config.inactivity_minutes,

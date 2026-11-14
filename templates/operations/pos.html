@@ -8,8 +8,10 @@
     <p class="lede">Cobra con el precio vigente. El inventario se descuenta al confirmar.</p>
   </div>
   <div>
-    {% if shift %}
+    {% if shift and can_see_shift %}
     <a class="btn secondary" href="{% url 'shift_detail' shift.pk %}">Caja abierta</a>
+    {% elif shift %}
+    <span class="badge">Caja abierta</span>
     {% elif perms.operations.open_register %}
     <a class="btn" href="{% url 'shift_open' %}">Abrir caja</a>
     {% else %}

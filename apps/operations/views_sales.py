@@ -5,8 +5,14 @@ from django.views.decorators.http import require_http_methods
 
 from apps.accounts.access import require
 from apps.operations.access import can_see_sale
-from apps.operations.after_sale import AfterSaleError, create_return, returned_qty, void_sale
-from apps.operations.models import Sale
+from apps.operations.after_sale import (
+    AfterSaleError,
+    confirm_card_refund,
+    create_return,
+    returned_qty,
+    void_sale,
+)
+from apps.operations.models import ExternalRefund, Sale
 
 
 def sale_list(request):
@@ -51,6 +57,9 @@ def sale_detail(request, folio):
             "payments": sale.payments.all(),
             "can_void": request.user.has_perm("operations.void_sale") and sale.status == Sale.CONFIRMED,
             "can_return": request.user.has_perm("operations.create_return") and sale.status == Sale.CONFIRMED,
+            "refunds": sale.external_refunds.all(),
+            "can_confirm_refund": request.user.has_perm("operations.void_sale")
+            or request.user.has_perm("operations.create_return"),
         },
     )
 
@@ -70,13 +79,30 @@ def sale_void(request, folio):
     sale = get_object_or_404(Sale, folio=folio)
     if request.method == "POST":
         try:
-            void_sale(sale=sale, user=request.user, reason=request.POST.get("reason", ""))
+            void_sale(
+                sale=sale,
+                user=request.user,
+                reason=request.POST.get("reason", ""),
+                card_confirmed=request.POST.get("card_confirmed") == "on",
+                card_reference=request.POST.get("card_reference", ""),
+            )
         except AfterSaleError as exc:
             messages.error(request, str(exc))
         else:
-            messages.success(request, f"{sale.folio} anulada. La venta y sus pagos siguen en el historial.")
+            pending = sale.external_refunds.filter(status=ExternalRefund.PENDING).exists()
+            if pending:
+                messages.warning(
+                    request,
+                    f"{sale.folio} anulada. El reembolso de tarjeta sigue pendiente hasta confirmarlo en la terminal externa.",
+                )
+            else:
+                messages.success(request, f"{sale.folio} anulada. La venta sigue en el historial.")
             return redirect("sale_detail", folio=sale.folio)
-    return render(request, "operations/void_form.html", {"sale": sale})
+    return render(
+        request,
+        "operations/void_form.html",
+        {"sale": sale, "card_total": sale.payments.filter(method="card").exists()},
+    )
 
 
 @require_http_methods(["GET", "POST"])
@@ -104,10 +130,35 @@ def sale_return(request, folio):
                 refund_method=request.POST.get("refund_method"),
                 reason=request.POST.get("reason", ""),
                 places=config_places,
+                card_confirmed=request.POST.get("card_confirmed") == "on",
+                card_reference=request.POST.get("card_reference", ""),
             )
         except AfterSaleError as exc:
             messages.error(request, str(exc))
         else:
-            messages.success(request, f"Devolución {record.folio} registrada.")
+            if record.refund_status == "pending":
+                messages.warning(
+                    request,
+                    f"Devolución {record.folio} registrada. El reembolso de tarjeta queda pendiente de la terminal externa.",
+                )
+            else:
+                messages.success(request, f"Devolución {record.folio} registrada.")
             return redirect("sale_detail", folio=sale.folio)
     return render(request, "operations/return_form.html", {"sale": sale, "lines": lines})
+
+
+@require_http_methods(["POST"])
+def refund_confirm(request, pk):
+    if not (request.user.has_perm("operations.void_sale") or request.user.has_perm("operations.create_return")):
+        require(request.user, "operations.create_return")
+    refund = get_object_or_404(ExternalRefund, pk=pk)
+    if request.POST.get("card_confirmed") != "on":
+        messages.error(request, "Confirma que la terminal externa ya hizo el reembolso.")
+        return redirect("sale_detail", folio=refund.sale.folio)
+    try:
+        confirm_card_refund(refund=refund, user=request.user, reference=request.POST.get("card_reference", ""))
+    except AfterSaleError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "Reembolso de tarjeta confirmado con la referencia de la terminal.")
+    return redirect("sale_detail", folio=refund.sale.folio)

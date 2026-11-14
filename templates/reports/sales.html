@@ -5,7 +5,7 @@
 <div class="page-head">
   <div>
     <h1>Ventas</h1>
-    <p class="lede">Solo ventas confirmadas. Una anulada no entra en el total. Las devoluciones se muestran aparte y no se restan solas.</p>
+    <p class="lede">El total de ventas usa la fecha de la venta. Las devoluciones usan la fecha en que se registraron y no se restan de ese total.</p>
   </div>
 </div>
 {% if error %}<p class="banner error">{{ error }}</p>{% endif %}
@@ -49,7 +49,7 @@
   <button type="submit">Ver</button>
 </form>
 {% if data %}
-<p>{{ data.count }} registros · total {% moneyfmt data.total %} · devoluciones del periodo {% moneyfmt data.refunded %}</p>
+<p>{{ data.count }} ventas · total de ventas {% moneyfmt data.total %} · devuelto ya registrado {% moneyfmt data.refunded %} · pendiente de terminal {% moneyfmt data.pending_refund %}</p>
 <p>Del {{ data.start|date:"d/m/Y" }} al {{ data.end|date:"d/m/Y" }}.</p>
 <p>
   <a href="?{{ query }}&exportar=csv">CSV</a>
@@ -72,6 +72,26 @@
       </tr>
       {% empty %}
       <tr><td colspan="7">No hay ventas confirmadas en este filtro.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<h2>Devoluciones registradas en el periodo</h2>
+<div class="table-wrap panel">
+  <table>
+    <thead><tr><th>Folio</th><th>Fecha de registro</th><th>Venta original</th><th>Quién registró</th><th>Total</th><th>Estado</th></tr></thead>
+    <tbody>
+      {% for row in data.returns %}
+      <tr>
+        <td>{{ row.folio }}</td>
+        <td>{{ row.fecha|date:"d/m/Y H:i" }}</td>
+        <td><a href="{% url 'sale_detail' row.venta %}">{{ row.venta }}</a></td>
+        <td>{{ row.cajero }}</td>
+        <td>{% moneyfmt row.total %}</td>
+        <td>{{ row.estado }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No hay devoluciones registradas en este periodo.</td></tr>
       {% endfor %}
     </tbody>
   </table>

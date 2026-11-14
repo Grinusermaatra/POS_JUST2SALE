@@ -1,9 +1,10 @@
-const CACHE = "just2sale-shell-v1";
+const CACHE = "just2sale-shell-v2";
 const SHELL = [
   "/caja/",
   "/static/css/app.css",
   "/static/js/money.js",
   "/static/js/offline.js",
+  "/static/js/session.js",
   "/static/js/print.js",
   "/static/favicon.svg",
 ];
@@ -18,6 +19,13 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
   );
   self.clients.claim();
+});
+
+self.addEventListener("message", (event) => {
+  if (!event.data || event.data.type !== "wipe") return;
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(keys.filter((key) => key.indexOf("just2sale") === 0).map((key) => caches.delete(key))))
+  );
 });
 
 self.addEventListener("fetch", (event) => {

@@ -4,7 +4,7 @@ from django.views.decorators.http import require_http_methods
 
 from apps.accounts.access import require
 from apps.core.models import get_business
-from apps.operations.access import can_close_shift
+from apps.operations.access import can_close_shift, can_see_shift
 from apps.operations.cashbox import (
     CashError,
     close_shift,
@@ -41,14 +41,10 @@ def shift_open(request):
 
 
 def shift_detail(request, pk):
-    if not (
-        request.user.has_perm("operations.open_register")
-        or request.user.has_perm("operations.sell")
-        or request.user.has_perm("operations.manual_cash_movement")
-    ):
-        require(request.user, "operations.sell")
     config = getattr(request, "business", None) or get_business()
     shift = get_object_or_404(CashShift.objects.select_related("opened_by", "closed_by"), pk=pk)
+    if not can_see_shift(request.user, shift):
+        require(request.user, "operations.view_all_sales")
     movements = shift.movements.select_related("user")
     return render(
         request,
@@ -69,6 +65,8 @@ def shift_move(request, pk):
     require(request.user, "operations.manual_cash_movement")
     config = getattr(request, "business", None) or get_business()
     shift = get_object_or_404(CashShift, pk=pk, status=CashShift.OPEN)
+    if not can_see_shift(request.user, shift):
+        require(request.user, "operations.view_all_sales")
     if request.method == "POST":
         try:
             manual_movement(
@@ -91,6 +89,8 @@ def shift_move(request, pk):
 def shift_close(request, pk):
     config = getattr(request, "business", None) or get_business()
     shift = get_object_or_404(CashShift, pk=pk)
+    if not can_see_shift(request.user, shift):
+        require(request.user, "operations.view_all_sales")
     if shift.status != CashShift.OPEN:
         messages.error(request, "Este cierre ya está confirmado y no se puede modificar.")
         return redirect("shift_detail", pk=shift.pk)
@@ -130,6 +130,8 @@ def shift_correct(request, pk):
     require(request.user, "operations.manual_cash_movement")
     config = getattr(request, "business", None) or get_business()
     shift = get_object_or_404(CashShift, pk=pk, status=CashShift.CLOSED)
+    if not can_see_shift(request.user, shift):
+        require(request.user, "operations.view_all_sales")
     try:
         correct_closed_shift(
             shift=shift,

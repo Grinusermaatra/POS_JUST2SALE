@@ -12,6 +12,7 @@ from apps.core.audit import audit
 from apps.reports.queries import report_rows
 
 COLUMNS = ["Folio", "Fecha", "Cajero", "Producto", "Cantidad", "Total", "Método"]
+RETURN_COLUMNS = ["Folio", "Fecha de registro", "Venta original", "Quién registró", "Total", "Estado", "Método"]
 
 
 def _filters(request):
@@ -49,6 +50,23 @@ def _table(data):
                 row["producto"],
                 row["cantidad"],
                 f"{row['total']:.2f}",
+                row["metodo"],
+            ]
+        )
+    return table
+
+
+def _return_table(data):
+    table = []
+    for row in data["returns"]:
+        table.append(
+            [
+                row["folio"],
+                row["fecha"].strftime("%d/%m/%Y %H:%M"),
+                row["venta"],
+                row["cajero"],
+                f"{row['total']:.2f}",
+                row["estado"],
                 row["metodo"],
             ]
         )
@@ -104,6 +122,10 @@ def _csv(data):
     writer = csv.writer(response)
     writer.writerow(COLUMNS)
     writer.writerows(_table(data))
+    writer.writerow([])
+    writer.writerow(["Devoluciones por fecha de registro"])
+    writer.writerow(RETURN_COLUMNS)
+    writer.writerows(_return_table(data))
     return response
 
 
@@ -114,6 +136,10 @@ def _xlsx(data):
     sheet.append(COLUMNS)
     for row in _table(data):
         sheet.append(row)
+    returns = book.create_sheet("Devoluciones")
+    returns.append(RETURN_COLUMNS)
+    for row in _return_table(data):
+        returns.append(row)
     buffer = BytesIO()
     book.save(buffer)
     response = HttpResponse(

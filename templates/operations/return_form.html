@@ -33,6 +33,11 @@
         <option value="credit">Saldo a favor</option>
       </select>
     </label>
+    <p>Si eliges tarjeta y no confirmas la terminal, la devolución queda pendiente de reembolso. Este sistema no hace el reembolso.</p>
+    <label>Referencia de la terminal
+      <input class="control" name="card_reference" maxlength="40" autocomplete="off">
+    </label>
+    <label><input type="checkbox" name="card_confirmed"> La terminal externa ya reembolsó</label>
     <button type="submit">Registrar devolución</button>
   </form>
 </section>

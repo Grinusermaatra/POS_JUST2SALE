@@ -9,7 +9,7 @@ from apps.core.money import money
 from apps.inventory.models import StockMovement
 from apps.operations.cashbox import CashError, current_shift, record_cash
 from apps.operations.folios import next_folio
-from apps.operations.models import Payment, ReturnLine, ReturnRecord, Sale, SaleLine, StoreCredit
+from apps.operations.models import ExternalRefund, Payment, ReturnLine, ReturnRecord, Sale, SaleLine, StoreCredit
 
 
 class AfterSaleError(Exception):
@@ -18,6 +18,67 @@ class AfterSaleError(Exception):
 
 def returned_qty(sale_line):
     return sale_line.return_lines.aggregate(total=Sum("quantity"))["total"] or 0
+
+
+def terminal_reference(reference):
+    reference = (reference or "").strip()[:80]
+    digits = reference.replace(" ", "").replace("-", "")
+    if digits.isdigit() and len(digits) >= 12:
+        raise AfterSaleError("No guardes el número de tarjeta. Escribe la referencia de la terminal.")
+    if len(reference) < 3:
+        raise AfterSaleError("Escribe la referencia que mostró la terminal externa.")
+    return reference
+
+
+def _card_refund(*, sale, user, amount, kind, return_record, confirmed, reference):
+    if amount <= 0:
+        return None
+    status = ExternalRefund.PENDING
+    stored_reference = ""
+    confirmed_by = None
+    confirmed_at = None
+    if confirmed:
+        stored_reference = terminal_reference(reference)
+        status = ExternalRefund.CONFIRMED
+        confirmed_by = user
+        confirmed_at = timezone.now()
+    refund = ExternalRefund.objects.create(
+        sale=sale,
+        return_record=return_record,
+        kind=kind,
+        amount=amount,
+        status=status,
+        reference=stored_reference,
+        user=user,
+        confirmed_by=confirmed_by,
+        confirmed_at=confirmed_at,
+    )
+    if return_record is not None:
+        return_record.refund_status = status
+        return_record.external_reference = stored_reference
+        return_record.save(update_fields=["refund_status", "external_reference"])
+    return refund
+
+
+@transaction.atomic
+def confirm_card_refund(*, refund, user, reference):
+    refund = ExternalRefund.objects.select_for_update().get(pk=refund.pk)
+    if refund.status == ExternalRefund.CONFIRMED:
+        return refund
+    stored = terminal_reference(reference)
+    now = timezone.now()
+    refund.status = ExternalRefund.CONFIRMED
+    refund.reference = stored
+    refund.confirmed_by = user
+    refund.confirmed_at = now
+    refund.save(update_fields=["status", "reference", "confirmed_by", "confirmed_at"])
+    if refund.return_record_id:
+        record = refund.return_record
+        record.refund_status = ReturnRecord.CONFIRMED
+        record.external_reference = stored
+        record.save(update_fields=["refund_status", "external_reference"])
+    audit(user, "card.refund", refund, f"Referencia {stored}. Importe {refund.amount}.")
+    return refund
 
 
 def _cash_shift_for_reversal(sale):
@@ -30,7 +91,7 @@ def _cash_shift_for_reversal(sale):
 
 
 @transaction.atomic
-def void_sale(*, sale, user, reason):
+def void_sale(*, sale, user, reason, card_confirmed=False, card_reference=""):
     reason = (reason or "").strip()
     if len(reason) < 3:
         raise AfterSaleError("El motivo es obligatorio.")
@@ -67,14 +128,42 @@ def void_sale(*, sale, user, reason):
             reference=sale.folio,
             reason=f"Anulación {sale.folio}. {reason}",
         )
+    card_total = money(
+        sum(payment.amount for payment in sale.payments.filter(method=Payment.CARD)),
+        2,
+    )
+    card_refund = _card_refund(
+        sale=sale,
+        user=user,
+        amount=card_total,
+        kind=ExternalRefund.VOID,
+        return_record=None,
+        confirmed=card_confirmed,
+        reference=card_reference,
+    )
     sale.status = Sale.VOIDED
     sale.save(update_fields=["status"])
-    audit(user, "sale.void", sale, reason)
+    detail = reason
+    if card_refund and card_refund.status == ExternalRefund.PENDING:
+        detail = f"{reason} Reembolso de tarjeta pendiente en la terminal externa."
+    audit(user, "sale.void", sale, detail)
     return sale
 
 
 @transaction.atomic
-def create_return(*, sale, user, quantities, restock_flags, reasons, refund_method, reason, places=2):
+def create_return(
+    *,
+    sale,
+    user,
+    quantities,
+    restock_flags,
+    reasons,
+    refund_method,
+    reason,
+    places=2,
+    card_confirmed=False,
+    card_reference="",
+):
     reason = (reason or "").strip()
     if len(reason) < 3:
         raise AfterSaleError("El motivo es obligatorio.")
@@ -104,6 +193,8 @@ def create_return(*, sale, user, quantities, restock_flags, reasons, refund_meth
     if not chosen:
         raise AfterSaleError("Indica qué se devuelve.")
     refund = money(refund, places)
+    if refund_method == "card" and card_confirmed:
+        terminal_reference(card_reference)
     record = ReturnRecord.objects.create(
         folio=next_folio("D", "return"),
         sale=sale,
@@ -147,6 +238,16 @@ def create_return(*, sale, user, quantities, restock_flags, reasons, refund_meth
             )
         except CashError as exc:
             raise AfterSaleError(str(exc)) from exc
+    if refund > 0 and refund_method == "card":
+        _card_refund(
+            sale=sale,
+            user=user,
+            amount=refund,
+            kind=ExternalRefund.RETURN,
+            return_record=record,
+            confirmed=card_confirmed,
+            reference=card_reference,
+        )
     if refund > 0 and refund_method == "credit":
         StoreCredit.objects.create(
             customer_name=sale.customer_name,
@@ -158,5 +259,8 @@ def create_return(*, sale, user, quantities, restock_flags, reasons, refund_meth
             user=user,
             note=f"Devolución {record.folio}",
         )
-    audit(user, "sale.return", record, f"{record.folio} de {sale.folio}. {reason}")
+    note = f"{record.folio} de {sale.folio}. {reason}"
+    if record.refund_status == ReturnRecord.PENDING:
+        note += " Reembolso de tarjeta pendiente en la terminal externa."
+    audit(user, "sale.return", record, note)
     return record

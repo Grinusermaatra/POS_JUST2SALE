@@ -21,6 +21,7 @@ urlpatterns = [
     path("ventas/<str:folio>/ticket/", views_sales.ticket, name="ticket"),
     path("ventas/<str:folio>/anular/", views_sales.sale_void, name="sale_void"),
     path("ventas/<str:folio>/devolver/", views_sales.sale_return, name="sale_return"),
+    path("reembolsos/<int:pk>/confirmar/", views_sales.refund_confirm, name="refund_confirm"),
     path("pedidos/", views_orders.order_list, name="order_list"),
     path("pedidos/nuevo/", views_orders.order_create, name="order_create"),
     path("pedidos/agregar/", views_orders.order_add, name="order_add"),
